@@ -1,24 +1,18 @@
-Q1: Use GDB's si (Step Instruction) command to trace into the ROM BIOS for a few more instructions, 
-and try to guess what it might be doing. 
+Q1: Use GDB's si (Step Instruction) command to trace into the ROM BIOS for a few more instructions, and try to guess what it might be doing. 
 
-A: The BIOS initializes various system hardware and sets up the global and interrupt
-descriptor table.
+A: The BIOS initializes various system hardware and sets up the global and interrupt descriptor table.
 
-Q2: At what point does the processor start executing 32-bit code? 
-What exactly causes the switch from 16- to 32-bit mode?
+Q2: At what point does the processor start executing 32-bit code? What exactly causes the switch from 16- to 32-bit mode?
 
-A: The processor starts executing 32-bit code at the beginning of the protcseg label. The
-long jump to this label is what causes this switch.
+A: The processor starts executing 32-bit code at the beginning of the protcseg label. The long jump to this label is what causes this switch.
 
-Q3: What is the last instruction of the boot loader executed, 
-and what is the first instruction of the kernel it just loaded?
+Q3: What is the last instruction of the boot loader executed, and what is the first instruction of the kernel it just loaded?
 
 A: The last instruction of the bootloader is 
 
 call   *0x10018
 
-This switches to the kernel's elf entry address and starts executing instructions there.
-The first instruction executed in the kernel is 
+This switches to the kernel's elf entry address and starts executing instructions there. The first instruction executed in the kernel is 
 
 movw   $0x1234,0x472 
 
@@ -28,35 +22,16 @@ Q4: Where is the first instruction of the kernel?
 
 A: The first instruction of the kernel is at physical address 0x010000c.
 
-Q5: How does the boot loader decide how many sectors it must read in order to 
-fetch the entire kernel from disk? Where does it find this information?
+Q5: How does the boot loader decide how many sectors it must read in order to fetch the entire kernel from disk? Where does it find this information?
 
 A: The bootloader figures this out from the kernel's elf program header table entries.
 
-Q5: Trace through the first few instructions of the boot loader again and identify the first 
-instruction that would "break" or otherwise do the wrong thing if you were to get the boot 
-loader's link address wrong. Then change the link address in boot/Makefrag to something wrong, 
-run make clean, recompile the lab with make, and trace into the boot loader again to see what 
-happens. Don't forget to change the link address back and make clean again afterward!
+Q5: Trace through the first few instructions of the boot loader again and identify the first instruction that would "break" or otherwise do the wrong thing if you were to get the boot loader's link address wrong. Then change the link address in boot/Makefrag to something wrong, run make clean, recompile the lab with make, and trace into the boot loader again to see what happens. Don't forget to change the link address back and make clean again afterward!
 
-A: The first instruction that would do the wrong thing is the long jump to the protcseg
-label in boot.S. This is because the long jump references a memory address that is not correct. The 
-protcseg is at a different address than where the bootloader code jumps to because the bios still
-loads the bootloader at 0x7c00 even though the bootloader was not linked to run at this address.
+A: The first instruction that would do the wrong thing is the long jump to the protcseg label in boot.S. This is because the long jump references a memory address that is not correct. The protcseg is at a different address than where the bootloader code jumps to because the bios still loads the bootloader at 0x7c00 even though the bootloader was not linked to run at this address.
 
-Q: We can examine memory using GDB's x command. The GDB manual has full details, but for now, 
-it is enough to know that the command x/Nx ADDR prints N words of memory at ADDR. 
-(Note that both 'x's in the command are lowercase.) Warning: The size of a word is not a 
-universal standard. In GNU assembly, a word is two bytes (the 'w' in xorw, which stands for 
-word, means 2 bytes).
+Q: We can examine memory using GDB's x command. The GDB manual has full details, but for now, it is enough to know that the command x/Nx ADDR prints N words of memory at ADDR. (Note that both 'x's in the command are lowercase.) Warning: The size of a word is not a universal standard. In GNU assembly, a word is two bytes (the 'w' in xorw, which stands for word, means 2 bytes).
 
-Reset the machine (exit QEMU/GDB and start them again).
-Examine the 8 words of memory at 0x00100000 at the point the 
-BIOS enters the boot loader, and then again at the point the boot loader 
-enters the kernel. Why are they different? What is there at the second breakpoint?
-(You do not really need to use QEMU to answer this question. Just think.)
+Reset the machine (exit QEMU/GDB and start them again). Examine the 8 words of memory at 0x00100000 at the point the BIOS enters the boot loader, and then again at the point the boot loader enters the kernel. Why are they different? What is there at the second breakpoint? (You do not really need to use QEMU to answer this question. Just think.)
 
-A: The regions are different because when the bootloader first starts executing, the kernel
-has not been loaded into memory yet. Once the bootloader has finished loading the kernel
-at it's load address (0x100000), the contents of the memory at 0x100000 is different because
-the kernel's instructions have now been loaded to this region of memory.
+A: The regions are different because when the bootloader first starts executing, the kernel has not been loaded into memory yet. Once the bootloader has finished loading the kernel at it's load address (0x100000), the contents of the memory at 0x100000 is different because the kernel's instructions have now been loaded to this region of memory.
