@@ -35,3 +35,18 @@ Q: We can examine memory using GDB's x command. The GDB manual has full details,
 Reset the machine (exit QEMU/GDB and start them again). Examine the 8 words of memory at 0x00100000 at the point the BIOS enters the boot loader, and then again at the point the boot loader enters the kernel. Why are they different? What is there at the second breakpoint? (You do not really need to use QEMU to answer this question. Just think.)
 
 A: The regions are different because when the bootloader first starts executing, the kernel has not been loaded into memory yet. Once the bootloader has finished loading the kernel at it's load address (0x100000), the contents of the memory at 0x100000 is different because the kernel's instructions have now been loaded to this region of memory.
+
+Q: Explain the interface between printf.c and console.c. Specifically, what function does console.c export? How is this function used by printf.c?
+
+A: The console.c file exports an interface to the serial, parallel, and computer graphics output while printf.c provides an interface for calling a string formatter and then directing that formatted string to the console.c interface. Basically the console.c file provide a hardware abstraction interface to the kernel for the graphics and serial output.
+
+Q: Explain the following from console.c:
+1      if (crt_pos >= CRT_SIZE) {
+2              int i;
+3              memmove(crt_buf, crt_buf + CRT_COLS, (CRT_SIZE - CRT_COLS) * sizeof(uint16_t));
+4              for (i = CRT_SIZE - CRT_COLS; i < CRT_SIZE; i++)
+5                      crt_buf[i] = 0x0700 | ' ';
+6              crt_pos -= CRT_COLS;
+7      } 
+
+A: The code above in console.c shifts the output on the terminal up by one coloumn when the screen becomes full.
