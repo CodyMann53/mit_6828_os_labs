@@ -97,13 +97,24 @@ boot_alloc(uint32_t n)
 		nextfree = ROUNDUP((char *) end, PGSIZE);
 	}
 
+	if (n == 0) {
+		return nextfree;
+	}
+
 	// Allocate a chunk large enough to hold 'n' bytes, then update
 	// nextfree.  Make sure nextfree is kept aligned
 	// to a multiple of PGSIZE.
 	//
 	// LAB 2: Your code here.
+	result = nextfree;
 
-	return NULL;
+	nextfree = ROUNDUP((char *)(nextfree + n), PGSIZE);
+	
+	if ((size_t) PADDR(nextfree) >= npages * PGSIZE) {
+		panic("Out of memory.");
+	}	
+	
+	return result;
 }
 
 // Set up a two-level page table:
@@ -123,9 +134,6 @@ mem_init(void)
 
 	// Find out how much memory the machine has (npages & npages_basemem).
 	i386_detect_memory();
-
-	// Remove this line when you're ready to test this function.
-	panic("mem_init: This function is not finished\n");
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
@@ -157,6 +165,8 @@ mem_init(void)
 	// particular, we can now map memory using boot_map_region
 	// or page_insert
 	page_init();
+	
+	panic("mem_init: This function is not finished\n");
 
 	check_page_free_list(1);
 	check_page_alloc();
