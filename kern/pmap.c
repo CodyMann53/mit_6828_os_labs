@@ -156,7 +156,8 @@ mem_init(void)
 	// array.  'npages' is the number of physical pages in memory.  Use memset
 	// to initialize all fields of each struct PageInfo to 0.
 	// Your code goes here:
-
+	pages = (struct PageInfo *) boot_alloc(npages * sizeof(struct PageInfo));
+	memset(pages, 0, sizeof(struct PageInfo));
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -165,12 +166,11 @@ mem_init(void)
 	// particular, we can now map memory using boot_map_region
 	// or page_insert
 	page_init();
-	
-	panic("mem_init: This function is not finished\n");
-
 	check_page_free_list(1);
 	check_page_alloc();
+	panic("mem_init: This function is not finished\n");
 	check_page();
+
 
 	//////////////////////////////////////////////////////////////////////
 	// Now we set up virtual memory
@@ -262,10 +262,24 @@ page_init(void)
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
 	size_t i;
+	size_t pagesFree = 0;
 	for (i = 0; i < npages; i++) {
-		pages[i].pp_ref = 0;
-		pages[i].pp_link = page_free_list;
-		page_free_list = &pages[i];
+		physaddr_t phyAddr = i*PGSIZE;
+
+		if (phyAddr == 0 || // Case 1
+		    (phyAddr >= IOPHYSMEM && phyAddr < EXTPHYSMEM) || // Case 3
+		    (phyAddr >= PADDR((void *)0xF0100000) && phyAddr < PADDR(boot_alloc(0))) 
+		   ) {
+			pages[i].pp_ref = 1;
+			pages[i].pp_link = NULL;
+
+		}
+		else {
+			pages[i].pp_ref = 0;
+			pages[i].pp_link = page_free_list;
+			page_free_list = &pages[i];
+			pagesFree++;
+		}
 	}
 }
 
@@ -285,7 +299,17 @@ struct PageInfo *
 page_alloc(int alloc_flags)
 {
 	// Fill this function in
-	return 0;
+	struct PageInfo * tmp = page_free_list;
+
+	if (tmp) {
+		page_free_list = tmp->pp_link;
+		tmp->pp_link = NULL;
+		if (alloc_flags & ALLOC_ZERO) {
+			memset(page2kva(tmp), 0, PGSIZE);
+		}	
+	}
+
+	return tmp;
 }
 
 //
@@ -298,6 +322,17 @@ page_free(struct PageInfo *pp)
 	// Fill this function in
 	// Hint: You may want to panic if pp->pp_ref is nonzero or
 	// pp->pp_link is not NULL.
+	if (pp->pp_ref != 0) {
+		panic("page_free with non-zero reference counter.");
+	}
+
+	if (pp->pp_link != NULL) {
+		panic("page_free double free.");
+	}
+
+	pp->pp_link = page_free_list;
+	page_free_list = pp;
+	return;
 }
 
 //
