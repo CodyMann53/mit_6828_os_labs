@@ -408,6 +408,16 @@ static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	// Fill this function in
+	for (int pgIdx = 0; pgIdx < (size / PGSIZE); pgIdx++){
+		
+		pte_t * tableEntry = pgdir_walk(pgdir, (void *)(va + pgIdx*PGSIZE), true);
+		if (!tableEntry){
+			panic("No memory.");
+		}
+		*tableEntry = (pa+pgIdx*PGSIZE) | perm | PTE_P; 
+	}
+	
+	return;	
 }
 
 //
