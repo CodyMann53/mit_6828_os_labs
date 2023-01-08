@@ -168,8 +168,8 @@ mem_init(void)
 	page_init();
 	check_page_free_list(1);
 	check_page_alloc();
-	panic("mem_init: This function is not finished\n");
 	check_page();
+	panic("mem_init: This function is not finished\n");
 
 
 	//////////////////////////////////////////////////////////////////////
@@ -372,7 +372,25 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
-	return NULL;
+        pde_t * dirEntry = &pgdir[PDX(va)];
+        
+        bool present = *dirEntry & PTE_P;
+        if (!present && !create){
+		return NULL;
+	}
+	else if (!present){
+
+		struct PageInfo * ptable = page_alloc(ALLOC_ZERO);
+		if (!ptable){
+			return NULL;
+		}
+
+		*dirEntry = page2pa(ptable) | PTE_P | PTE_W | PTE_U; 
+	}
+
+	pte_t * ptable = KADDR(PTE_ADDR(*dirEntry));
+        	
+	return &ptable[PTX(va)];
 }
 
 //
