@@ -25,9 +25,21 @@ static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
 	{ "backtrace", "Perform a backtrace of the kernel stack", mon_backtrace },
+	{ "showmappings", "Display information about page mappings for a range of virtual addresses", show_mappings }
 };
 
 /***** Implementations of basic kernel monitor commands *****/
+int show_mappings(int argc, char **argv, struct Trapframe *tf)
+{
+	if (argc != 3)
+	{
+		cprintf("Error. Wrong number of arguments\n");
+                cprintf("Usage: showmappings <start va> <stop va>.\n");
+		return 0;
+	}
+
+	return 0;
+}
 
 int
 mon_help(int argc, char **argv, struct Trapframe *tf)
