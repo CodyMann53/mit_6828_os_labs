@@ -10,6 +10,7 @@
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
+#include <kern/pmap.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -36,6 +37,52 @@ int show_mappings(int argc, char **argv, struct Trapframe *tf)
 		cprintf("Error. Wrong number of arguments\n");
                 cprintf("Usage: showmappings <start va> <stop va>.\n");
 		return 0;
+	}
+
+	long start = ROUNDDOWN(strtol(argv[1], NULL, 0), PGSIZE);
+	long end = ROUNDDOWN(strtol(argv[2], NULL, 0), PGSIZE);
+	cprintf("start: %ld\n", start);
+	cprintf("end: %ld\n", end);
+
+	if (end < start){
+		cprintf("End virtual address must be greater than start.\n");
+	}
+
+	for(; start <= end; start += PGSIZE){
+		pte_t * pgEntry = pgdir_walk(kern_pgdir, (void *) start, false);
+		if (!pgEntry){
+			continue;
+		}
+	        
+		cprintf("va: 0x%x, pa: 0x%x, perms: ", start, PTE_ADDR(*pgEntry));
+	        if (*pgEntry & 	PTE_P){
+			cprintf("PTE_P,");
+		}
+	        if (*pgEntry & 	PTE_W){
+			cprintf("PTE_W,");
+		}
+	        if (*pgEntry & 	PTE_U){
+			cprintf("PTE_U,");
+		}
+	        if (*pgEntry & 	PTE_PWT){
+			cprintf("PTE_PWT,");
+		}
+	        if (*pgEntry & 	PTE_PCD){
+			cprintf("PTE_PCD,");
+		}
+	        if (*pgEntry & 	PTE_A){
+			cprintf("PTE_A,");
+		}
+	        if (*pgEntry & 	PTE_D){
+			cprintf("PTE_D,");
+		}
+	        if (*pgEntry & 	PTE_PS){
+			cprintf("PTE_PS,");
+		}
+	        if (*pgEntry & 	PTE_G){
+			cprintf("PTE_G,");
+		}
+		cprintf("\n");
 	}
 
 	return 0;
