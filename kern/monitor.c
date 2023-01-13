@@ -41,20 +41,22 @@ int show_mappings(int argc, char **argv, struct Trapframe *tf)
 
 	long start = ROUNDDOWN(strtol(argv[1], NULL, 0), PGSIZE);
 	long end = ROUNDDOWN(strtol(argv[2], NULL, 0), PGSIZE);
-	cprintf("start: %ld\n", start);
-	cprintf("end: %ld\n", end);
 
 	if (end < start){
-		cprintf("End virtual address must be greater than start.\n");
+		cprintf("End virtual address 0x%x must be greater than start 0x%x.\n", start, end);
+		return 0;
 	}
 
 	for(; start <= end; start += PGSIZE){
 		pte_t * pgEntry = pgdir_walk(kern_pgdir, (void *) start, false);
 		if (!pgEntry){
+			cprintf("va: 0x%x, pa: N/A, perms: \n", start);
 			continue;
 		}
+		else{
+			cprintf("va: 0x%x, pa: 0x%x, perms: ", start, PTE_ADDR(*pgEntry));
+		}
 	        
-		cprintf("va: 0x%x, pa: 0x%x, perms: ", start, PTE_ADDR(*pgEntry));
 	        if (*pgEntry & 	PTE_P){
 			cprintf("PTE_P,");
 		}
