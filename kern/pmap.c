@@ -95,6 +95,7 @@ boot_alloc(uint32_t n)
 	if (!nextfree) {
 		extern char end[];
 		nextfree = ROUNDUP((char *) end, PGSIZE);
+		cprintf("nextfree start: 0x%x\n", PADDR(nextfree));
 	}
 
 	if (n == 0) {
@@ -114,6 +115,7 @@ boot_alloc(uint32_t n)
 		panic("Out of memory.");
 	}	
 	
+	cprintf("Allocated %d pages at PADDR 0x%x\n", (nextfree - result) / PGSIZE, PADDR(result));
 	return result;
 }
 
@@ -139,6 +141,7 @@ mem_init(void)
 	// create initial page directory.
 	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);
 	memset(kern_pgdir, 0, PGSIZE);
+	cprintf("Kernel page directory allocated PADDR 0x%x\n", PADDR(kern_pgdir));
 
 	//////////////////////////////////////////////////////////////////////
 	// Recursively insert PD in itself as a page table, to form
@@ -157,7 +160,9 @@ mem_init(void)
 	// to initialize all fields of each struct PageInfo to 0.
 	// Your code goes here:
 	pages = (struct PageInfo *) boot_alloc(npages * sizeof(struct PageInfo));
-	memset(pages, 0, sizeof(struct PageInfo));
+	memset(pages, 0, npages * sizeof(struct PageInfo));
+	cprintf("pages allocated at PADDR 0x%x\n", PADDR((uint32_t *) pages));
+
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -180,8 +185,10 @@ mem_init(void)
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
-	boot_map_region(kern_pgdir, UPAGES, npages * sizeof(struct PageInfo), PADDR(pages), PTE_U);
-	boot_map_region(kern_pgdir, (uintptr_t) pages, npages * sizeof(struct PageInfo), PADDR(pages), PTE_W);
+	boot_map_region(kern_pgdir, UPAGES, 
+		ROUNDUP((uint32_t)(npages * sizeof(struct PageInfo)), PGSIZE), PADDR((uint32_t *) pages), PTE_U);
+	boot_map_region(kern_pgdir, (uintptr_t) pages,
+		ROUNDUP((uint32_t)(npages * sizeof(struct PageInfo)), PGSIZE), PADDR((uint32_t *) pages), PTE_W);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
