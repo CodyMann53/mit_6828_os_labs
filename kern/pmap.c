@@ -160,14 +160,16 @@ mem_init(void)
 	// array.  'npages' is the number of physical pages in memory.  Use memset
 	// to initialize all fields of each struct PageInfo to 0.
 	// Your code goes here:
-	pages = (struct PageInfo *) boot_alloc(npages * sizeof(struct PageInfo));
-	memset(pages, 0, npages * sizeof(struct PageInfo));
-	cprintf("pages allocated at PADDR 0x%x\n", PADDR((uint32_t *) pages));
-
+	uint32_t pagesSize = ROUNDUP(npages * sizeof(struct PageInfo), PGSIZE);
+	pages = (struct PageInfo *) boot_alloc(pagesSize);
+	memset(pages, 0, pagesSize);
 
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
+	uint32_t envSize = ROUNDUP(NENV * sizeof(struct Env), PGSIZE);
+	envs = (struct Env *) boot_alloc(envSize);
+	memset(envs, 0, envSize);
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -190,10 +192,8 @@ mem_init(void)
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
-	boot_map_region(kern_pgdir, UPAGES, 
-		ROUNDUP((uint32_t)(npages * sizeof(struct PageInfo)), PGSIZE), PADDR((uint32_t *) pages), PTE_U);
-	boot_map_region(kern_pgdir, (uintptr_t) pages,
-		ROUNDUP((uint32_t)(npages * sizeof(struct PageInfo)), PGSIZE), PADDR((uint32_t *) pages), PTE_W);
+	boot_map_region(kern_pgdir, UPAGES, pagesSize, PADDR((uint32_t *) pages), PTE_U);
+	boot_map_region(kern_pgdir, (uintptr_t) pages, pagesSize, PADDR((uint32_t *) pages), PTE_W);
 
 	//////////////////////////////////////////////////////////////////////
 	// Map the 'envs' array read-only by the user at linear address UENVS
@@ -202,6 +202,8 @@ mem_init(void)
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here.
+	boot_map_region(kern_pgdir, UENVS, envSize, PADDR(envs), PTE_U);
+	boot_map_region(kern_pgdir, (uintptr_t) envs, envSize, PADDR(envs), PTE_W);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
