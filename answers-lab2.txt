@@ -1,7 +1,7 @@
 Question 1
 ----------
 X should have type uintptr_t because the function return_a_pointer() returns a virtual address.
-This is known because the address that gets returned is dereferenced and assigned a value. 
+This is known because the address that gets returned is de-referenced and assigned a value. 
 This means that the code is working with a virtual address and not a physical one. 
 All C pointers work with virtual addresses.
 
