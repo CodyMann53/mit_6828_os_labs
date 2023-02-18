@@ -78,8 +78,8 @@ trap_init(void)
 	SETGATE(idt[T_SEGNP], 1, GD_KT, t_segnp, 0);
 	SETGATE(idt[T_STACK], 1, GD_KT, t_stack, 0);
 	SETGATE(idt[T_GPFLT], 1, GD_KT, t_gpflt, 0);
-	SETGATE(idt[T_PGFLT], 1, GD_KT, t_fperr, 0);
-	SETGATE(idt[T_FPERR], 1, GD_KT, t_align, 0);
+	SETGATE(idt[T_PGFLT], 1, GD_KT, t_pgflt, 0);
+	SETGATE(idt[T_FPERR], 1, GD_KT, t_fperr, 0);
 	SETGATE(idt[T_ALIGN], 1, GD_KT, t_align, 0);
 	SETGATE(idt[T_MCHK], 1, GD_KT, t_mchk, 0);
 
