@@ -69,7 +69,7 @@ TRAPHANDLER_NOEC(t_simderr, T_SIMDERR)
  * Lab 3: Your code here for _alltraps
  */
  _alltraps:
-	pushw $0
+ 	pushw $0
 	pushw %ds
 	pushw $0
 	pushw %es
