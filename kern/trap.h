@@ -32,6 +32,7 @@ void t_fperr();
 void t_align();
 void t_mchk();
 void t_simderr();
+void t_syscall();
 
 void trap_init(void);
 void trap_init_percpu(void);

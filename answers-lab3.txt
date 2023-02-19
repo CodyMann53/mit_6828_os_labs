@@ -6,3 +6,9 @@ choice but to kill the user environment, instead of being able to load that sect
 2. All of the exception traps use a kernel level descriptor privilege, and hence only the kernel can execute the code that is pointed to by the idt. This give user code
 the ability to have precise control on how it enters kernel level code, which would remove the protection mechanisms that the kernel needs to provide to
 protect against malicious or buggy programs. 
+
+3. The entry in the IDT needs to use a DPL of 3, because the int3 instruction is being called from user space
+in the user version of panic(). If the DPL was set to 0, then this would cause a general protection fault
+due to user space code not having permission to call the int3 instruction.
+
+4. The mechanisms are to prevent user programs from being able to trigger interrupts that should only come from the processor or devices.
