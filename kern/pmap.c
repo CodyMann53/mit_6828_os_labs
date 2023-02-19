@@ -609,8 +609,11 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 			return -E_FAULT;
 		}
 
-		// TODO check permissions
-		if ()
+		bool need_user = perm & PTE_U;
+		bool need_writeable = perm & PTE_W;
+
+		if ((need_writeable && !(*pte_store & PTE_W)) ||
+			(need_user && !(*pte_store & PTE_U)) )
 		{
 			user_mem_check_addr = iter < (uintptr_t) va ? (uintptr_t) va : iter;
 			return -E_FAULT;
