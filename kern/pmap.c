@@ -597,7 +597,7 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 	{
 		if (iter >= ULIM)
 		{
-			user_mem_check_addr = iter;
+			user_mem_check_addr = iter < (uintptr_t) va ? (uintptr_t) va : iter;
 			return -E_FAULT;
 		}
 
@@ -605,22 +605,18 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 		struct PageInfo * pg = page_lookup(env->env_pgdir, (void *) iter, &pte_store);
 		if (!pg)
 		{
-			user_mem_check_addr = iter;
+			user_mem_check_addr = iter < (uintptr_t) va ? (uintptr_t) va : iter;
 			return -E_FAULT;
 		}
 
-		int page_perm = 0xFFF & *pte_store;
-
-		if (page_perm != (perm | PTE_P))
+		// TODO check permissions
+		if ()
 		{
-			user_mem_check_addr = iter;
+			user_mem_check_addr = iter < (uintptr_t) va ? (uintptr_t) va : iter;
+			return -E_FAULT;
 		}
 	}
 
-	if (user_mem_check_addr < (uintptr_t) va)
-	{
-		user_mem_check_addr = (uintptr_t) va;
-	}
 
 	return 0;
 }
