@@ -13,6 +13,27 @@
 extern struct Gatedesc idt[];
 extern struct Pseudodesc idt_pd;
 
+// Trap handlers definitions
+void t_divideError();
+void t_debugException();
+void t_nmi();
+void t_brkpt();
+void t_oflow();
+void t_bound();
+void t_illop();
+void t_device();
+void t_dblft();
+void t_tss();
+void t_segnp();
+void t_stack();
+void t_gpflt();
+void t_pgflt();
+void t_fperr();
+void t_align();
+void t_mchk();
+void t_simderr();
+void t_syscall();
+
 void trap_init(void);
 void trap_init_percpu(void);
 void print_regs(struct PushRegs *regs);

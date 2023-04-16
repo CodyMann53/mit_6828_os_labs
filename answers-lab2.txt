@@ -1,0 +1,95 @@
+Question 1
+----------
+X should have type uintptr_t because the function return_a_pointer() returns a virtual address.
+This is known because the address that gets returned is de-referenced and assigned a value. 
+This means that the code is working with a virtual address and not a physical one. 
+All C pointers work with virtual addresses.
+
+Question 2 (TODO)
+----------
+Index: 956, Base VA: 0xef000000, Points to 0x3fd000 <------ pages array.
+Index: 957, Base VA: 0xef400000, Points to 0x11a000 <------ Kernel page directory mapped to UVPT
+Index: 959, Base VA: 0xefc00000, Points to 0x3ff000
+Index: 960, Base VA: 0xf0000000, Points to 0x3fe000 <------ KSTACKTOP and also beginning of kernel code
+Index: 961, Base VA: 0xf0400000, Points to 0x3fc000     
+Index: 962, Base VA: 0xf0800000, Points to 0x3fb000
+Index: 963, Base VA: 0xf0c00000, Points to 0x3fa000
+Index: 964, Base VA: 0xf1000000, Points to 0x3f9000
+Index: 965, Base VA: 0xf1400000, Points to 0x3f8000
+Index: 966, Base VA: 0xf1800000, Points to 0x3f7000
+Index: 967, Base VA: 0xf1c00000, Points to 0x3f6000
+Index: 968, Base VA: 0xf2000000, Points to 0x3f5000
+Index: 969, Base VA: 0xf2400000, Points to 0x3f4000
+Index: 970, Base VA: 0xf2800000, Points to 0x3f3000
+Index: 971, Base VA: 0xf2c00000, Points to 0x3f2000
+Index: 972, Base VA: 0xf3000000, Points to 0x3f1000
+Index: 973, Base VA: 0xf3400000, Points to 0x3f0000
+Index: 974, Base VA: 0xf3800000, Points to 0x3ef000
+Index: 975, Base VA: 0xf3c00000, Points to 0x3ee000
+Index: 976, Base VA: 0xf4000000, Points to 0x3ed000
+Index: 977, Base VA: 0xf4400000, Points to 0x3ec000
+Index: 978, Base VA: 0xf4800000, Points to 0x3eb000
+Index: 979, Base VA: 0xf4c00000, Points to 0x3ea000
+Index: 980, Base VA: 0xf5000000, Points to 0x3e9000
+Index: 981, Base VA: 0xf5400000, Points to 0x3e8000
+Index: 982, Base VA: 0xf5800000, Points to 0x3e7000
+Index: 983, Base VA: 0xf5c00000, Points to 0x3e6000
+Index: 984, Base VA: 0xf6000000, Points to 0x3e5000
+Index: 985, Base VA: 0xf6400000, Points to 0x3e4000
+Index: 986, Base VA: 0xf6800000, Points to 0x3e3000
+Index: 987, Base VA: 0xf6c00000, Points to 0x3e2000
+Index: 988, Base VA: 0xf7000000, Points to 0x3e1000
+Index: 989, Base VA: 0xf7400000, Points to 0x3e0000
+Index: 990, Base VA: 0xf7800000, Points to 0x3df000
+Index: 991, Base VA: 0xf7c00000, Points to 0x3de000
+Index: 992, Base VA: 0xf8000000, Points to 0x3dd000
+Index: 993, Base VA: 0xf8400000, Points to 0x3dc000
+Index: 994, Base VA: 0xf8800000, Points to 0x3db000
+Index: 995, Base VA: 0xf8c00000, Points to 0x3da000
+Index: 996, Base VA: 0xf9000000, Points to 0x3d9000
+Index: 997, Base VA: 0xf9400000, Points to 0x3d8000
+Index: 998, Base VA: 0xf9800000, Points to 0x3d7000
+Index: 999, Base VA: 0xf9c00000, Points to 0x3d6000
+Index: 1000, Base VA: 0xfa000000, Points to 0x3d5000
+Index: 1001, Base VA: 0xfa400000, Points to 0x3d4000
+Index: 1002, Base VA: 0xfa800000, Points to 0x3d3000
+Index: 1003, Base VA: 0xfac00000, Points to 0x3d2000
+Index: 1004, Base VA: 0xfb000000, Points to 0x3d1000
+Index: 1005, Base VA: 0xfb400000, Points to 0x3d0000
+Index: 1006, Base VA: 0xfb800000, Points to 0x3cf000
+Index: 1007, Base VA: 0xfbc00000, Points to 0x3ce000
+Index: 1008, Base VA: 0xfc000000, Points to 0x3cd000
+Index: 1009, Base VA: 0xfc400000, Points to 0x3cc000
+Index: 1010, Base VA: 0xfc800000, Points to 0x3cb000
+Index: 1011, Base VA: 0xfcc00000, Points to 0x3ca000
+Index: 1012, Base VA: 0xfd000000, Points to 0x3c9000
+Index: 1013, Base VA: 0xfd400000, Points to 0x3c8000
+Index: 1014, Base VA: 0xfd800000, Points to 0x3c7000
+Index: 1015, Base VA: 0xfdc00000, Points to 0x3c6000
+Index: 1016, Base VA: 0xfe000000, Points to 0x3c5000
+Index: 1017, Base VA: 0xfe400000, Points to 0x3c4000
+Index: 1018, Base VA: 0xfe800000, Points to 0x3c3000
+Index: 1019, Base VA: 0xfec00000, Points to 0x3c2000
+Index: 1020, Base VA: 0xff000000, Points to 0x3c1000
+Index: 1021, Base VA: 0xff400000, Points to 0x3c0000
+Index: 1022, Base VA: 0xff800000, Points to 0x3bf000
+Index: 1023, Base VA: 0xffc00000, Points to 0x3be000
+
+Question 3 (TODO)
+----------
+All kernel memory is mapped without the PTE_U bit in the page table entries. This prevents any user program from accessing kernel memory segments.
+
+Question 4 (TODO)
+----------
+
+Question 5 (TODO)
+----------
+
+Question 6 (TODO)
+----------
+
+Challenge Description
+---------------------
+I have decided to add a new kernel console command called showmappings. 
+This command takes in a range of virtual addresses and shows the current page table mappings and 
+flag bits for that range.
