@@ -98,7 +98,6 @@ boot_alloc(uint32_t n)
 	if (!nextfree) {
 		extern char end[];
 		nextfree = ROUNDUP((char *) end, PGSIZE);
-		cprintf("nextfree start: 0x%x\n", PADDR(nextfree));
 	}
 
 	if (n == 0) {
@@ -118,7 +117,6 @@ boot_alloc(uint32_t n)
 		panic("Out of memory.");
 	}	
 	
-	cprintf("Allocated %d pages at PADDR 0x%x\n", (nextfree - result) / PGSIZE, PADDR(result));
 	return result;
 }
 
@@ -144,7 +142,6 @@ mem_init(void)
 	// create initial page directory.
 	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);
 	memset(kern_pgdir, 0, PGSIZE);
-	cprintf("Kernel page directory allocated PADDR 0x%x\n", PADDR(kern_pgdir));
 
 	//////////////////////////////////////////////////////////////////////
 	// Recursively insert PD in itself as a page table, to form
@@ -326,7 +323,8 @@ page_init(void)
 
 		if (phyAddr == 0 || // Case 1
 		    (phyAddr >= IOPHYSMEM && phyAddr < EXTPHYSMEM) || // Case 3
-		    (phyAddr >= PADDR((void *)0xF0100000) && phyAddr < PADDR(boot_alloc(0))) 
+		    (phyAddr >= PADDR((void *)0xF0100000) && phyAddr < PADDR(boot_alloc(0))) ||
+			(phyAddr == MPENTRY_PADDR)
 		   ) {
 			pages[i].pp_ref = 1;
 			pages[i].pp_link = NULL;
@@ -571,7 +569,7 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 //
 // Hint: The TA solution is implemented using page_lookup,
 // 	tlb_invalidate, and page_decref.
-//
+//:
 void
 page_remove(pde_t *pgdir, void *va)
 {
@@ -947,7 +945,10 @@ check_va2pa(pde_t *pgdir, uintptr_t va)
 	p = (pte_t*) KADDR(PTE_ADDR(*pgdir));
 	if (!(p[PTX(va)] & PTE_P))
 		return ~0;
-	return PTE_ADDR(p[PTX(va)]);
+	
+	physaddr_t retVal = PTE_ADDR(p[PTX(va)]);
+	cprintf("va: %p --> pa: %p\n", va, retVal);
+	return retVal;
 }
 
 
