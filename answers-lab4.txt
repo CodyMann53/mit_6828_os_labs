@@ -1,0 +1,6 @@
+1. mpentry.S is loaded at MPENTRY_PADDR instead of x100000 which is where boot.S is loaded
+at when the bootloader loads the kernel. This requires that the mpentry.S reference symbols 
+in its binary as an offset from the MPENTRY_PADDR load address instead of the the link address
+of the kernel code. This is only needed until paging is turned on for the AP, in which case
+the symbols in mpentry.S will work correctly due to being linked with the same link addresses
+as the kernel code.

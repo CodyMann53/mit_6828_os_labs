@@ -277,6 +277,19 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
+	for (int i = 0; i < ncpu; i++)
+	{
+		uintptr_t kstacktop_i = KSTACKTOP - i * (KSTKSIZE + KSTKGAP);
+		uintptr_t va = KSTACKTOP;
+		physaddr_t pa = ;
+		boot_map_region(kern_pgdir, 
+			KSTACKTOP-KSTKSIZE, 
+			KSTKSIZE, 
+			PADDR(bootstack), 
+			PTE_W);
+	}
+
+	return;
 
 }
 
@@ -470,7 +483,7 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 		if (!tableEntry){
 			panic("No memory.");
 		}
-		*tableEntry = (pa+pgIdx*PGSIZE) | perm | PTE_P; 
+		*tableEntry = (pa+pgIdx*PGSIZE) | perm | PTE_P;
 	}
 	
 	return;	
@@ -641,7 +654,7 @@ mmio_map_region(physaddr_t pa, size_t size)
 		panic("Overflow of memory mapped I/O region");
 	}
 
-	boot_map_region(kern_pgdir, base, roundSize, pa, PTE_PCD|PTE_PWT|PTE_W);
+	boot_map_region(kern_pgdir, retBase, roundSize, pa, PTE_PCD|PTE_PWT|PTE_W);
 	return (void *) retBase;
 }
 
@@ -947,7 +960,6 @@ check_va2pa(pde_t *pgdir, uintptr_t va)
 		return ~0;
 	
 	physaddr_t retVal = PTE_ADDR(p[PTX(va)]);
-	cprintf("va: %p --> pa: %p\n", va, retVal);
 	return retVal;
 }
 
