@@ -277,17 +277,19 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
+	uintptr_t kstacktop_i = KSTACKTOP;
 	for (int i = 0; i < NCPU; i++)
 	{
-		uintptr_t kstacktop_i = KSTACKTOP - i * (KSTKSIZE + KSTKGAP);
-		uintptr_t va = kstacktop_i - KSTKSIZE;
+		uintptr_t mappedBottom = kstacktop_i - KSTKSIZE; 
 
 		// Map the region backed by physical memory
 		boot_map_region(kern_pgdir,
-			va, 
+			mappedBottom, 
 			KSTKSIZE, 
 			PADDR((void *) &percpu_kstacks[i]), 
 			PTE_W);
+		
+		kstacktop_i = kstacktop_i - (KSTKSIZE + KSTKGAP);
 	}
 
 	return;
