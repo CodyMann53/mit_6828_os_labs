@@ -568,7 +568,7 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 		*pte_store = tableEntry;
 	}
 
-	return pa2page(PTE_ADDR(*tableEntry));		
+	return pa2page(PTE_ADDR(*tableEntry));	
 }
 
 //

@@ -14,8 +14,6 @@
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
 
-static struct Taskstate ts;
-
 /* For debugging, so print_trapframe can distinguish between printing
  * a saved trapframe and printing the current trapframe and print some
  * additional information in the latter case.
@@ -126,7 +124,7 @@ trap_init_percpu(void)
 
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
-	thiscpu->cpu_ts.ts_esp0 = (uintptr_t) &percpu_kstacks[cpunum()][KSTKSIZE - 1];
+	thiscpu->cpu_ts.ts_esp0 = (uintptr_t) (KSTACKTOP - (cpunum() * (KSTKSIZE + KSTKGAP)));
 	thiscpu->cpu_ts.ts_ss0 = GD_KD;
 	thiscpu->cpu_ts.ts_iomb = sizeof(struct Taskstate);
 
@@ -137,7 +135,7 @@ trap_init_percpu(void)
 
 	// Load the TSS selector (like other segment selectors, the
 	// bottom three bits are special; we leave them 0)
-	ltr(GD_TSS0 + cpunum());
+	ltr(GD_TSS0 + (thiscpu->cpu_id * sizeof(struct Gatedesc)));
 
 	// Load the IDT
 	lidt(&idt_pd);
