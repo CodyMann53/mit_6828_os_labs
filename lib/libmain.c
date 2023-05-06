@@ -17,7 +17,7 @@ libmain(int argc, char **argv)
 	thisenv = 0;
 	envid_t thisEnvId = sys_getenvid();
 
-	thisenv = (struct Env *) (UENVS + ENVX(thisEnvId));
+	thisenv = &envs[ENVX(thisEnvId)];
 
 	// save the name of the program so that panic() can use it
 	if (argc > 0)

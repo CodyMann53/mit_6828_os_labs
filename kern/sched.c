@@ -38,7 +38,7 @@ sched_yield(void)
 		idle = envs;
 	}
 	
-	for (unsigned int idx = ENVX(idle->env_id) + 1 % NENV; 
+	for (unsigned int idx = (ENVX(idle->env_id) + 1) % NENV; 
 			idx != ENVX(idle->env_id); 
 			idx = (idx + 1) % NENV)
 	{
@@ -48,7 +48,7 @@ sched_yield(void)
 		}
 	}
 
-	if (idle->env_status == ENV_RUNNING)
+	if (idle->env_status == ENV_RUNNING || idle->env_status == ENV_RUNNABLE)
 	{
 		env_run(idle);
 	}
