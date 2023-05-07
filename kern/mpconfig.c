@@ -177,8 +177,6 @@ mp_init(void)
 	ismp = 1;
 	lapicaddr = conf->lapicaddr;
 
-	cprintf("Entries in MP configuration table: %d\n", conf->entry);
-
 	for (p = conf->entries, i = 0; i < conf->entry; i++) {
 		switch (*p) {
 		case MPPROC:
