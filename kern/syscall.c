@@ -137,7 +137,7 @@ sys_exofork(void)
 	}
 
 	newEnv->env_tf = curEnv->env_tf;
-	newEnv->env_tf.tf_eip = 0;
+	newEnv->env_tf.tf_regs.reg_eax = 0;
 	newEnv->env_status = ENV_NOT_RUNNABLE;
 	return newEnv->env_id;
 }
@@ -450,7 +450,7 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		ret = sys_page_alloc((envid_t) a1, (void *) a2, (int) a3);
 		break;
 	case SYS_page_map:
-		ret = sys_page_unmap((envid_t) a1, (void *) a2);
+		ret = sys_page_map((envid_t) a1, (void *) a2, (envid_t) a3, (void *) a4, (int) a5);
 		break;
 	case SYS_page_unmap:
 		ret = sys_page_unmap((envid_t) a1, (void *) a2);
