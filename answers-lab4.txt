@@ -4,3 +4,13 @@ in its binary as an offset from the MPENTRY_PADDR load address instead of the th
 of the kernel code. This is only needed until paging is turned on for the AP, in which case
 the symbols in mpentry.S will work correctly due to being linked with the same link addresses
 as the kernel code.
+
+2. Multiple user processes can still trap into the kernel through a system call even if another CPU has the kernel lock held. This situation requires that each
+CPU have its own kernel stack. One CPU could overwrite another CPU's kernel stack if it is already in kernel code with lock held.
+
+3. Every user environment contains the same kernel virtual address space. The environment pointer references an entry in the envs array which is mapped in kernel
+virtual address space.
+
+4. This is required so that when the scheduler runs the yielded environment again in the future, it will be able to arrange the CPU registers in a way
+so that the environent can begin executing exactly where it left off beforing yielding the processor. The saving of the environment's CPU registers
+happends in the assembly subroutine _alltraps and also when the trap c function makes a copy of the trap frame in the environment structure's env_tf element.
