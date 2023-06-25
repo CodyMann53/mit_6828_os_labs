@@ -350,11 +350,47 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
 	// LAB 4: Your code here.
+	if (curenv->env_pgfault_upcall == NULL)
+	{
+		// Destroy the environment that caused the fault.
+		cprintf("[%08x] user fault va %08x ip %08x\n",
+			curenv->env_id, fault_va, tf->tf_eip);
+		print_trapframe(tf);
+		env_destroy(curenv);
+		return;
+	}
+	
+	user_mem_assert(curenv, (void *)(UXSTACKTOP-PGSIZE), PGSIZE, PTE_W);
 
-	// Destroy the environment that caused the fault.
-	cprintf("[%08x] user fault va %08x ip %08x\n",
-		curenv->env_id, fault_va, tf->tf_eip);
-	print_trapframe(tf);
-	env_destroy(curenv);
+	// User exception stack overflow check
+	if (((tf->tf_esp - sizeof(struct UTrapframe) ) < UXSTACKTOP-PGSIZE ) && 
+		((tf->tf_esp - sizeof(struct UTrapframe) ) >= USTACKTOP))
+	{
+		cprintf("[%08x] User exception stack overflow.\n", curenv->env_id);
+		print_trapframe(tf);
+		env_destroy(curenv);
+	}
+
+	bool recursiveCall = (tf->tf_esp >= (UXSTACKTOP-PGSIZE)) && (tf->tf_esp < UXSTACKTOP);
+	uintptr_t start;
+
+	if (!recursiveCall)
+	{
+		start = UXSTACKTOP - sizeof(struct UTrapframe);
+	}
+	else
+	{
+		start = tf->tf_esp - sizeof(struct UTrapframe) - 4;
+	}
+
+	struct UTrapframe * utf = (struct UTrapframe *) start;
+	utf->utf_fault_va = fault_va;
+	utf->utf_esp = tf->tf_esp;
+	utf->utf_regs = tf->tf_regs;
+	utf->utf_err = tf->tf_err;
+	utf->utf_eip = tf->tf_eip;
+	utf->utf_eflags = tf->tf_eflags;
+	tf->tf_esp =(uintptr_t )(utf);
+	tf->tf_eip = (uintptr_t) curenv->env_pgfault_upcall;
+	env_run(curenv);
 }
-

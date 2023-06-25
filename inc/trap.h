@@ -43,6 +43,7 @@
 
 #include <inc/types.h>
 
+// Size = 32 bytes
 struct PushRegs {
 	/* registers as pushed by pusha */
 	uint32_t reg_edi;
@@ -76,14 +77,14 @@ struct Trapframe {
 
 struct UTrapframe {
 	/* information about the fault */
-	uint32_t utf_fault_va;	/* va for T_PGFLT, 0 otherwise */
+	uint32_t utf_fault_va;	/* va for T_PGFLT, 0 otherwise */   // <- Lower memory address on little endian machines
 	uint32_t utf_err;
 	/* trap-time return state */
 	struct PushRegs utf_regs;
 	uintptr_t utf_eip;
 	uint32_t utf_eflags;
 	/* the trap-time stack to return to */
-	uintptr_t utf_esp;
+	uintptr_t utf_esp; // <- Higher memory address on little endian machines
 } __attribute__((packed));
 
 #endif /* !__ASSEMBLER__ */

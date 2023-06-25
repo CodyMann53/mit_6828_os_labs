@@ -26,7 +26,7 @@
 // blank word above the trap-time esp for scratch work when we unwind
 // the recursive call.
 //
-// We then have call up to the appropriate page fault handler in C
+// We then have to call up to the appropriate page fault handler in C
 // code, pointed to by the global variable '_pgfault_handler'.
 
 .text
@@ -66,17 +66,42 @@ _pgfault_upcall:
 	//
 	// LAB 4: Your code here.
 
+	// Pop off utf_fault_va and utf_err
+    	addl $0x8, %esp     
+
+	// Move trap time eip into eax
+    	movl 0x20(%esp), %eax
+
+    	// Move the value of trap time esp into ecx
+    	movl 0x28(%esp), %ecx
+
+	// Free space for return instruction pointer should be placed 4 bytes underneath the run time stack pointer
+    	subl $0x4, %ecx
+
+    	// push trap time eip onto trap time stack where hole was reserved
+    	movl %eax, (%ecx)
+
+	// Store new trap time stack pointer in user trap frame 
+    	movl %ecx, 0x28(%esp) 
+
 	// Restore the trap-time registers.  After you do this, you
 	// can no longer modify any general-purpose registers.
 	// LAB 4: Your code here.
+	popal
+
+	// Pop tf_eip off of the stack
+	addl $0x4, %esp
 
 	// Restore eflags from the stack.  After you do this, you can
 	// no longer use arithmetic operations or anything else that
 	// modifies eflags.
 	// LAB 4: Your code here.
+	popfl	
 
 	// Switch back to the adjusted trap-time stack.
 	// LAB 4: Your code here.
+	popl %esp
 
 	// Return to re-execute the instruction that faulted.
 	// LAB 4: Your code here.
+	ret
