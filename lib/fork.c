@@ -7,6 +7,9 @@
 // It is one of the bits explicitly allocated to user processes (PTE_AVAIL).
 #define PTE_COW		0x800
 
+// Assembly language pgfault entrypoint defined in lib/pfentry.S.
+extern void _pgfault_upcall(void);
+
 //
 // Custom page fault handler - if faulting page is copy-on-write,
 // map in our own private writable copy.
@@ -25,6 +28,18 @@ pgfault(struct UTrapframe *utf)
 	//   (see <inc/memlayout.h>).
 
 	// LAB 4: Your code here.
+	int pn = (uintptr_t) addr / PGSIZE;
+	int perm = uvpt[pn] & 0xFFF;
+
+	if (err != FEC_WR)
+	{
+		panic("Non-write page fault error code in user fork page fault handler.");
+	} 
+
+	if (!(perm & PTE_COW))
+	{
+		panic("Fork page fault handler received page fault for address that was not mapped COW.");
+	}
 
 	// Allocate a new page, map it at a temporary location (PFTEMP),
 	// copy the data from the old page to the new page, then move the new
@@ -33,8 +48,26 @@ pgfault(struct UTrapframe *utf)
 	//   You should make three system calls.
 
 	// LAB 4: Your code here.
+	r = sys_page_alloc(0, PFTEMP, PTE_W | PTE_U | PTE_P);
+	if (r != 0)
+	{
+		panic("Fork page fault handler failed to allocate temporary page for copying cow page into its address space");
+	}
 
-	panic("pgfault not implemented");
+	memcpy(PFTEMP, (void *) PTE_ADDR(addr), PGSIZE);
+	r = sys_page_map(0, PFTEMP, 0, (void *) PTE_ADDR(addr), PTE_W | PTE_U | PTE_P);
+	if (r != 0)
+	{
+		panic("Fork page fault handler failed to map copy of faulting address page.");
+	}
+
+	r = sys_page_unmap(0, PFTEMP);
+	if (r != 0)
+	{
+		panic("Fork page fault handler failed to unmap PFTEMP during cleanup.");
+	}
+
+	return;
 }
 
 //
@@ -54,8 +87,30 @@ duppage(envid_t envid, unsigned pn)
 	int r;
 
 	// LAB 4: Your code here.
+	pte_t pgtEntry = uvpt[pn];
 
+	uintptr_t va = pn*PGSIZE;
+	int perm = 0xFFF & pgtEntry;
+	bool cow = perm & PTE_COW;
+	bool w = perm & PTE_W;
 
+	if (w || cow)
+	{
+		perm |= (PTE_W | PTE_COW);
+	}
+
+	r = sys_page_map(0, (void *) va,
+	    	envid, (void *) va, perm);
+	if (r != 0)
+	{
+		return r;
+	}
+
+	r = sys_page_map(0, (void *) va, 0, (void *) va, perm);
+	if (r != 0)
+	{
+		return r;
+	}
 
 	return 0;
 }
