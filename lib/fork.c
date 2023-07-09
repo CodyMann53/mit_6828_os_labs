@@ -21,6 +21,8 @@ pgfault(struct UTrapframe *utf)
 	uint32_t err = utf->utf_err;
 	int r;
 
+	cprintf("Pgfault for address: 0x%0x\n", addr);
+
 	// Check that the faulting access was (1) a write, and (2) to a
 	// copy-on-write page.  If not, panic.
 	// Hint:
@@ -33,7 +35,7 @@ pgfault(struct UTrapframe *utf)
 
 	if (err != FEC_WR)
 	{
-		panic("Non-write page fault error code in user fork page fault handler.");
+		panic("Non-write page fault error code in user fork page fault handler. Faulting VA: %0x", addr);
 	} 
 
 	if (!(perm & PTE_COW))
@@ -85,6 +87,9 @@ static int
 duppage(envid_t envid, unsigned pn)
 {
 	int r;
+
+	// DEBUG
+	cprintf("duppage called with page number = %u\n", pn);
 
 	// LAB 4: Your code here.
 	pte_t pgtEntry = uvpt[pn];
@@ -147,6 +152,13 @@ fork(void)
 		cprintf("Failure to create a child environment in fork() call. Error: %e\n", childEnvid);
 		return childEnvid;
 	}
+	else if (childEnvid == 0)
+	{
+		envid_t thisEnvId = sys_getenvid();
+
+		thisenv = &envs[ENVX(thisEnvId)];
+		return 0;
+	}
 
 	/* 
 		3. For each writable or copy-on-write page in its address space below UTOP, the parent calls duppage, 
@@ -162,22 +174,16 @@ fork(void)
 
 		fork() also needs to handle pages that are present, but not writable or copy-on-write.
     */
-   	const unsigned int UTOPPgNum = UTOP / PGSIZE;
-	const unsigned int UXSTACKPgNum = (UXSTACKTOP - PGSIZE) / PGSIZE;
-   	for (unsigned int pgNum = 0; pgNum < UTOPPgNum; pgNum++)
+
+	int ret = sys_page_alloc(childEnvid, (void *)(UXSTACKTOP - PGSIZE), PTE_U | PTE_W | PTE_P);
+	if (ret != 0)
 	{
+		cprintf("Failed to allocate user exception stack page for child. Error: %e\n", ret);
+		return ret;
+	}
 
-		// Allocate a fresh page for the child's exception stack
-		if (pgNum == UXSTACKPgNum)
-		{
-			int ret = sys_page_alloc(childEnvid, (void *)(UXSTACKTOP - PGSIZE), PTE_U | PTE_W | PTE_P);
-			if (ret != 0)
-			{
-				cprintf("Failed to allocate user exception stack page for child. Error: %e\n", ret);
-				return ret;
-			}
-		}
-
+   	for (unsigned int pgNum = 0; pgNum < NPTENTRIES; pgNum++)
+	{
 		// First check to make sure the page table page is mapped
 		pde_t pdEntry = uvpd[pgNum];
 		if (!(pdEntry & PTE_P))
@@ -191,7 +197,7 @@ fork(void)
 		{
 			continue;
 		}
-
+ 
 		int ret = duppage(childEnvid, pgNum);
 		if (ret != 0)
 		{
@@ -201,7 +207,7 @@ fork(void)
 	}
 
 	// 4. The parent sets the user page fault entrypoint for the child to look like its own.
-	int ret = sys_env_set_pgfault_upcall(childEnvid, _pgfault_upcall);
+	ret = sys_env_set_pgfault_upcall(childEnvid, _pgfault_upcall);
 	if (ret != 0)
 	{
 		cprintf("Failure to setup the child's page fault entrypoint in fork() call. Error: %e\n", ret);
