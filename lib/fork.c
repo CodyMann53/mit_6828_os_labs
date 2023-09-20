@@ -21,8 +21,6 @@ pgfault(struct UTrapframe *utf)
 	uint32_t err = utf->utf_err;
 	int r;
 
-	cprintf("Pgfault for address: 0x%0x\n", addr);
-
 	// Check that the faulting access was (1) a write, and (2) to a
 	// copy-on-write page.  If not, panic.
 	// Hint:
@@ -33,9 +31,10 @@ pgfault(struct UTrapframe *utf)
 	int pn = (uintptr_t) addr / PGSIZE;
 	int perm = uvpt[pn] & 0xFFF;
 
-	if (err != FEC_WR)
+	if (!(err & FEC_WR))
 	{
-		panic("Non-write page fault error code in user fork page fault handler. Faulting VA: %0x", addr);
+		cprintf("Faulting VA: 0x%x, err = %x\n", addr, err);
+		panic("Non-write page fault error code in user fork page fault handler.");
 	} 
 
 	if (!(perm & PTE_COW))
@@ -57,6 +56,8 @@ pgfault(struct UTrapframe *utf)
 	}
 
 	memcpy(PFTEMP, (void *) PTE_ADDR(addr), PGSIZE);
+
+
 	r = sys_page_map(0, PFTEMP, 0, (void *) PTE_ADDR(addr), PTE_W | PTE_U | PTE_P);
 	if (r != 0)
 	{
@@ -88,20 +89,14 @@ duppage(envid_t envid, unsigned pn)
 {
 	int r;
 
-	// DEBUG
-	cprintf("duppage called with page number = %u\n", pn);
-
 	// LAB 4: Your code here.
-	pte_t pgtEntry = uvpt[pn];
-
+	pte_t pte = uvpt[pn];
 	uintptr_t va = pn*PGSIZE;
-	int perm = 0xFFF & pgtEntry;
-	bool cow = perm & PTE_COW;
-	bool w = perm & PTE_W;
+	int perm = PTE_U | PTE_P;
 
-	if (w || cow)
+	if ((pte & PTE_W) || (pte & PTE_COW))
 	{
-		perm |= (PTE_W | PTE_COW);
+		perm |= PTE_COW;
 	}
 
 	r = sys_page_map(0, (void *) va,
@@ -110,13 +105,13 @@ duppage(envid_t envid, unsigned pn)
 	{
 		return r;
 	}
-
+	
 	r = sys_page_map(0, (void *) va, 0, (void *) va, perm);
 	if (r != 0)
 	{
 		return r;
 	}
-
+	
 	return 0;
 }
 
@@ -173,7 +168,7 @@ fork(void)
 		on the exception stack, the exception stack cannot be made copy-on-write: who would copy it?
 
 		fork() also needs to handle pages that are present, but not writable or copy-on-write.
-    */
+        */
 
 	int ret = sys_page_alloc(childEnvid, (void *)(UXSTACKTOP - PGSIZE), PTE_U | PTE_W | PTE_P);
 	if (ret != 0)
@@ -182,10 +177,11 @@ fork(void)
 		return ret;
 	}
 
-   	for (unsigned int pgNum = 0; pgNum < NPTENTRIES; pgNum++)
+   	for (unsigned int pgNum = 0; pgNum < PGNUM(USTACKTOP); pgNum++)
 	{
+
 		// First check to make sure the page table page is mapped
-		pde_t pdEntry = uvpd[pgNum];
+		pde_t pdEntry = uvpd[PDX(pgNum*PGSIZE)];
 		if (!(pdEntry & PTE_P))
 		{
 			continue;
@@ -197,7 +193,7 @@ fork(void)
 		{
 			continue;
 		}
- 
+
 		int ret = duppage(childEnvid, pgNum);
 		if (ret != 0)
 		{

@@ -366,7 +366,7 @@ page_fault_handler(struct Trapframe *tf)
 	if (((tf->tf_esp - sizeof(struct UTrapframe) ) < UXSTACKTOP-PGSIZE ) && 
 		((tf->tf_esp - sizeof(struct UTrapframe) ) >= USTACKTOP))
 	{
-		cprintf("[%08x] User exception stack overflow.\n", curenv->env_id);
+		cprintf("[%08x] User exception stack overflow. tf_esp: 0x%x\n", curenv->env_id, tf->tf_esp);
 		print_trapframe(tf);
 		env_destroy(curenv);
 	}

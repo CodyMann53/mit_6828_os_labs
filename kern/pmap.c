@@ -110,7 +110,6 @@ boot_alloc(uint32_t n)
 	//
 	// LAB 2: Your code here.
 	result = nextfree;
-
 	nextfree = ROUNDUP((char *)(nextfree + n), PGSIZE);
 	
 	if ((size_t) PADDR(nextfree) >= npages * PGSIZE) {
@@ -333,7 +332,6 @@ page_init(void)
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
 	size_t i;
-	size_t pagesFree = 0;
 	for (i = 0; i < npages; i++) {
 		physaddr_t phyAddr = i*PGSIZE;
 
@@ -350,7 +348,6 @@ page_init(void)
 			pages[i].pp_ref = 0;
 			pages[i].pp_link = page_free_list;
 			page_free_list = &pages[i];
-			pagesFree++;
 		}
 	}
 }
@@ -444,10 +441,10 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
-        pde_t * dirEntry = &pgdir[PDX(va)];
-        
-        bool present = *dirEntry & PTE_P;
-        if (!present && !create){
+	pde_t * dirEntry = &pgdir[PDX(va)];
+	bool present = *dirEntry & PTE_P;
+
+	if (!present && !create){
 		return NULL;
 	}
 	else if (!present){
@@ -479,6 +476,10 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
+	assert(size % PGSIZE == 0);
+	assert(pa % PGSIZE == 0);
+	assert(va % PGSIZE == 0);
+
 	// Fill this function in
 	for (int pgIdx = 0; pgIdx < (size / PGSIZE); pgIdx++){
 		
@@ -534,7 +535,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 		page_remove(pgdir, va);
 	}
 	
-	*tableEntry = page2pa(pp) | perm | PTE_P; 
+	*tableEntry = page2pa(pp) | perm | PTE_P;
 
 	return 0;
 }
