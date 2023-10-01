@@ -17,7 +17,7 @@ extern void _pgfault_upcall(void);
 static void
 pgfault(struct UTrapframe *utf)
 {
-	void *addr = (void *) utf->utf_fault_va;
+	void * addr = (void *) utf->utf_fault_va;
 	uint32_t err = utf->utf_err;
 	int r;
 
@@ -28,16 +28,12 @@ pgfault(struct UTrapframe *utf)
 	//   (see <inc/memlayout.h>).
 
 	// LAB 4: Your code here.
-	int pn = (uintptr_t) addr / PGSIZE;
-	int perm = uvpt[pn] & 0xFFF;
-
 	if (!(err & FEC_WR))
 	{
-		cprintf("Faulting VA: 0x%x, err = %x\n", addr, err);
 		panic("Non-write page fault error code in user fork page fault handler.");
 	} 
 
-	if (!(perm & PTE_COW))
+	if (!(uvpt[PGNUM(addr)] & PTE_COW))
 	{
 		panic("Fork page fault handler received page fault for address that was not mapped COW.");
 	}
@@ -49,22 +45,22 @@ pgfault(struct UTrapframe *utf)
 	//   You should make three system calls.
 
 	// LAB 4: Your code here.
-	r = sys_page_alloc(0, PFTEMP, PTE_W | PTE_U | PTE_P);
+	r = sys_page_alloc(0, (void *) PFTEMP, PTE_W | PTE_U | PTE_P);
 	if (r != 0)
 	{
 		panic("Fork page fault handler failed to allocate temporary page for copying cow page into its address space");
 	}
 
-	memcpy(PFTEMP, (void *) PTE_ADDR(addr), PGSIZE);
+	memcpy((void *) PFTEMP, ROUNDDOWN(addr, PGSIZE), PGSIZE);
 
 
-	r = sys_page_map(0, PFTEMP, 0, (void *) PTE_ADDR(addr), PTE_W | PTE_U | PTE_P);
+	r = sys_page_map(0, (void *) PFTEMP, 0, ROUNDDOWN(addr, PGSIZE), PTE_W | PTE_U | PTE_P);
 	if (r != 0)
 	{
 		panic("Fork page fault handler failed to map copy of faulting address page.");
 	}
 
-	r = sys_page_unmap(0, PFTEMP);
+	r = sys_page_unmap(0, (void *) PFTEMP);
 	if (r != 0)
 	{
 		panic("Fork page fault handler failed to unmap PFTEMP during cleanup.");
@@ -106,12 +102,6 @@ duppage(envid_t envid, unsigned pn)
 		return r;
 	}
 	
-	r = sys_page_map(0, (void *) va, 0, (void *) va, perm);
-	if (r != 0)
-	{
-		return r;
-	}
-	
 	return 0;
 }
 
@@ -135,7 +125,6 @@ envid_t
 fork(void)
 {
 	// LAB 4: Your code here.
-
 	// 1. The parent installs pgfault() as the C-level page fault handler, using the set_pgfault_handler()
 	set_pgfault_handler(pgfault);
 
@@ -179,7 +168,6 @@ fork(void)
 
    	for (unsigned int pgNum = 0; pgNum < PGNUM(USTACKTOP); pgNum++)
 	{
-
 		// First check to make sure the page table page is mapped
 		pde_t pdEntry = uvpd[PDX(pgNum*PGSIZE)];
 		if (!(pdEntry & PTE_P))
@@ -200,6 +188,12 @@ fork(void)
 			cprintf("Failure to duplicate page into the child environment in fork() call. Error: %e\n", ret);
 			return ret;
 		}	
+		ret = duppage(0, pgNum);
+		if (ret != 0)
+		{
+			cprintf("Failure to duplicate page into the parent environment in fork() call. Error: %e\n", ret);
+			return ret;
+		}
 	}
 
 	// 4. The parent sets the user page fault entrypoint for the child to look like its own.

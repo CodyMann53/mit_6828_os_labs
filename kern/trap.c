@@ -317,6 +317,8 @@ page_fault_handler(struct Trapframe *tf)
 		panic("Page fault in the kernel! VA: 0x%0x", fault_va);
 	}
 
+
+
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
 
@@ -372,25 +374,25 @@ page_fault_handler(struct Trapframe *tf)
 	}
 
 	bool recursiveCall = (tf->tf_esp >= (UXSTACKTOP-PGSIZE)) && (tf->tf_esp < UXSTACKTOP);
-	uintptr_t start;
-
+	uint32_t savedSp = tf->tf_esp;
+	
 	if (!recursiveCall)
 	{
-		start = UXSTACKTOP - sizeof(struct UTrapframe);
+		tf->tf_esp = UXSTACKTOP - sizeof(struct UTrapframe);
 	}
 	else
 	{
-		start = tf->tf_esp - sizeof(struct UTrapframe) - 4;
+		tf->tf_esp -= 4;
+		tf->tf_esp -= sizeof(struct UTrapframe);
 	}
 
-	struct UTrapframe * utf = (struct UTrapframe *) start;
+	struct UTrapframe * utf = (struct UTrapframe *) tf->tf_esp;
 	utf->utf_fault_va = fault_va;
-	utf->utf_esp = tf->tf_esp;
+	utf->utf_esp = savedSp;
 	utf->utf_regs = tf->tf_regs;
 	utf->utf_err = tf->tf_err;
 	utf->utf_eip = tf->tf_eip;
 	utf->utf_eflags = tf->tf_eflags;
-	tf->tf_esp =(uintptr_t )(utf);
 	tf->tf_eip = (uintptr_t) curenv->env_pgfault_upcall;
 	env_run(curenv);
 }

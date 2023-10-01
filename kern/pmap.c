@@ -534,7 +534,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	if (present){
 		page_remove(pgdir, va);
 	}
-	
+        
 	*tableEntry = page2pa(pp) | perm | PTE_P;
 
 	return 0;

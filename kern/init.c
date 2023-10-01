@@ -26,6 +26,7 @@ i386_init(void)
 	cons_init();
 
 	cprintf("\n6828 decimal is %o octal!\n", 6828);
+	cprintf("Size of UTrapframe: %u bytes\n", sizeof(struct UTrapframe));
 
 	// Lab 2 memory management initialization functions
 	mem_init();
