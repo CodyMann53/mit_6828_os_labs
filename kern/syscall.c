@@ -194,6 +194,7 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func)
 		return ret;
 	}
 
+	user_mem_assert(curenv, func, sizeof(void *), 0);
 	env_store->env_pgfault_upcall = func;
 	return 0;
 }
