@@ -33,6 +33,11 @@ void t_align();
 void t_mchk();
 void t_simderr();
 void t_syscall();
+void t_timer();
+void t_kbd();
+void t_serial();
+void t_spurious();
+void t_ide();
 
 void trap_init(void);
 void trap_init_percpu(void);
