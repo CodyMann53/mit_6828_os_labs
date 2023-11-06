@@ -401,7 +401,62 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_try_send not implemented");
+	struct Env * env = NULL;
+	if (envid2env(0, &env, 0) != 0)
+	{
+		return -E_BAD_ENV;
+	}
+
+	if (!env->env_ipc_recving)
+	{
+		return -E_IPC_NOT_RECV;
+	}
+
+	if (srcva && srcva < UTOP)
+	{
+		if ((uint32_t) srcva % PGSIZE != 0)
+		{
+			return -E_INVAL;
+		}
+
+		if (check_valid_perms(perm) != 0)
+		{
+			return -E_INVAL;
+		}
+
+		if (check_valid_user_va(srcva) != 0)
+		{
+			return -E_INVAL;
+		}
+
+		struct PageInfo * pp = NULL;
+		pte_t * pte_store = NULL;
+		if ((pp = page_lookup(env->env_pgdir, srcva, &pte_store)) == NULL)
+		{
+			return -E_INVAL;
+		}
+
+		if ((perm & PTE_W) && !(*pte_store & PTE_W))
+		{
+			return -E_INVAL;
+		}
+
+		if (env->env_ipc_dstva)
+		{	
+			int ret = 0;
+			if ((ret = page_insert(env->env_pgdir, pp, env->env_ipc_dstva, perm)) != 0)
+			{
+				return ret;
+			}
+			env->env_ipc_perm = perm;
+		}
+	}
+
+	env->env_ipc_recving = 0;
+	env->env_ipc_value = value;
+	env->env_ipc_from = curenv->env_id;
+	env->env_status = ENV_RUNNABLE;
+	return 0;
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -419,7 +474,27 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_recv not implemented");
+	struct Env * env = NULL;
+	if (envid2env(0, &env, 0) != 0)
+	{
+		return -E_BAD_ENV;
+	}
+
+	if (dstva && dstva < UTOP)
+	{
+		if ((uint32_t) dstva % PGSIZE != 0)
+		{
+			env->env_ipc_dstva = dstva;
+		}
+		else
+		{
+			cprintf("Error sys_ipc_recv(): dstva < UTOP but is not page aligned.\n");
+		}
+	}
+
+	env->env_ipc_recving = true;
+	env->env_status = ENV_NOT_RUNNABLE;
+
 	return 0;
 }
 
@@ -466,6 +541,12 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		break;
 	case SYS_env_set_pgfault_upcall:
 		ret = sys_env_set_pgfault_upcall((envid_t) a1, (void *) a2);
+		break;
+	case SYS_ipc_recv:
+		ret = sys_ipc_try_send((envid_t) a1, a2, (void *) a3, (unsigned) a4);
+		break;
+	case SYS_ipc_try_send:
+		ret = sys_ipc_recv((void *) a1);
 		break;
 	default:
 		ret = -E_INVAL;
