@@ -412,7 +412,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 		return -E_IPC_NOT_RECV;
 	}
 
-	if (srcva && srcva < UTOP)
+	if (srcva && srcva < (void *) UTOP)
 	{
 		if ((uint32_t) srcva % PGSIZE != 0)
 		{
@@ -480,15 +480,16 @@ sys_ipc_recv(void *dstva)
 		return -E_BAD_ENV;
 	}
 
-	if (dstva && dstva < UTOP)
+	if (dstva && dstva < (void *) UTOP)
 	{
-		if ((uint32_t) dstva % PGSIZE != 0)
+		if ((uintptr_t) dstva % PGSIZE == 0)
 		{
 			env->env_ipc_dstva = dstva;
 		}
 		else
 		{
 			cprintf("Error sys_ipc_recv(): dstva < UTOP but is not page aligned.\n");
+			return -E_INVAL;
 		}
 	}
 
