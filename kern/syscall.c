@@ -402,7 +402,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 4: Your code here.
 	struct Env * env = NULL;
-	if (envid2env(0, &env, 0) != 0)
+	if (envid2env(envid, &env, 0) != 0)
 	{
 		return -E_BAD_ENV;
 	}
@@ -431,7 +431,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 
 		struct PageInfo * pp = NULL;
 		pte_t * pte_store = NULL;
-		if ((pp = page_lookup(env->env_pgdir, srcva, &pte_store)) == NULL)
+		if ((pp = page_lookup(curenv->env_pgdir, srcva, &pte_store)) == NULL)
 		{
 			return -E_INVAL;
 		}
@@ -544,10 +544,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		ret = sys_env_set_pgfault_upcall((envid_t) a1, (void *) a2);
 		break;
 	case SYS_ipc_recv:
-		ret = sys_ipc_try_send((envid_t) a1, a2, (void *) a3, (unsigned) a4);
+		ret = sys_ipc_recv((void *) a1);
 		break;
 	case SYS_ipc_try_send:
-		ret = sys_ipc_recv((void *) a1);
+		ret = sys_ipc_try_send((envid_t) a1, a2, (void *) a3, (unsigned) a4);
 		break;
 	default:
 		ret = -E_INVAL;

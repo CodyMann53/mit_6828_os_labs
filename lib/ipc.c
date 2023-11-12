@@ -69,6 +69,7 @@ ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
 	while (retVal == -E_IPC_NOT_RECV)
 	{
 		retVal = sys_ipc_try_send(to_env, val, srcPg, perm);
+		sys_yield();
 	}
 
 	if (retVal != 0)
