@@ -16,7 +16,7 @@
  * BOOT UP STEPS
  *  * when the CPU boots it loads the BIOS into memory and executes it
  *
- *  * the BIOS intializes devices, sets of the interrupt routines, and
+ *  * the BIOS intializes devices, sets up the interrupt routines, and
  *    reads the first sector of the boot device(e.g., hard-drive)
  *    into memory and jumps to it.
  *
@@ -24,7 +24,7 @@
  *    hard-drive, this code takes over...
  *
  *  * control starts in boot.S -- which sets up protected mode,
- *    and a stack so C code then run, then calls bootmain()
+ *    and a stack so C code can then run, then calls bootmain()
  *
  *  * bootmain() in this file takes over, reads in the kernel and jumps to it.
  **********************************************************************/

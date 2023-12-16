@@ -11,6 +11,7 @@
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
 #include <kern/trap.h>
+#include <kern/pmap.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -25,9 +26,70 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "backtrace", "Perform a backtrace of the kernel stack", mon_backtrace },
+	{ "showmappings", "Display information about page mappings for a range of virtual addresses", show_mappings }
 };
 
 /***** Implementations of basic kernel monitor commands *****/
+int show_mappings(int argc, char **argv, struct Trapframe *tf)
+{
+	if (argc != 3)
+	{
+		cprintf("Error. Wrong number of arguments\n");
+                cprintf("Usage: showmappings <start va> <stop va>.\n");
+		return 0;
+	}
+
+	long start = ROUNDDOWN(strtol(argv[1], NULL, 0), PGSIZE);
+	long end = ROUNDDOWN(strtol(argv[2], NULL, 0), PGSIZE);
+
+	if (end < start){
+		cprintf("End virtual address 0x%x must be greater than start 0x%x.\n", start, end);
+		return 0;
+	}
+
+	for(; start <= end; start += PGSIZE){
+		pte_t * pgEntry = pgdir_walk(kern_pgdir, (void *) start, false);
+		if (!pgEntry){
+			cprintf("va: 0x%x, pa: N/A, perms: \n", start);
+			continue;
+		}
+		else{
+			cprintf("va: 0x%x, pa: 0x%x, perms: ", start, PTE_ADDR(*pgEntry));
+		}
+	        
+	        if (*pgEntry & 	PTE_P){
+			cprintf("PTE_P,");
+		}
+	        if (*pgEntry & 	PTE_W){
+			cprintf("PTE_W,");
+		}
+	        if (*pgEntry & 	PTE_U){
+			cprintf("PTE_U,");
+		}
+	        if (*pgEntry & 	PTE_PWT){
+			cprintf("PTE_PWT,");
+		}
+	        if (*pgEntry & 	PTE_PCD){
+			cprintf("PTE_PCD,");
+		}
+	        if (*pgEntry & 	PTE_A){
+			cprintf("PTE_A,");
+		}
+	        if (*pgEntry & 	PTE_D){
+			cprintf("PTE_D,");
+		}
+	        if (*pgEntry & 	PTE_PS){
+			cprintf("PTE_PS,");
+		}
+	        if (*pgEntry & 	PTE_G){
+			cprintf("PTE_G,");
+		}
+		cprintf("\n");
+	}
+
+	return 0;
+}
 
 int
 mon_help(int argc, char **argv, struct Trapframe *tf)
@@ -58,7 +120,30 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-	// Your code here.
+	uint32_t ebp = read_ebp();
+	uint32_t * stackFrame;
+        while(ebp)
+        {
+		struct Eipdebuginfo info;
+		memset(&info, 0, sizeof(struct Eipdebuginfo));
+
+		stackFrame = (uint32_t *) ebp;
+		debuginfo_eip(stackFrame[1], &info);
+		cprintf("ebp %08x eip %08x args %08x %08x %08x %08x %08x\n",
+			ebp,
+                        stackFrame[1],
+		        stackFrame[2],
+		        stackFrame[3],
+		        stackFrame[4],
+		        stackFrame[5],
+		        stackFrame[6]
+		);
+		cprintf("\t%s:%d: %.*s+%d\n", info.eip_file, info.eip_line, 
+			info.eip_fn_namelen, info.eip_fn_name, 
+			(int)(stackFrame[1] - info.eip_fn_addr));
+		ebp = stackFrame[0];
+        }
+
 	return 0;
 }
 
