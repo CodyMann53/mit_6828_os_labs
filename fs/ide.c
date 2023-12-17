@@ -14,6 +14,7 @@
 
 static int diskno = 1;
 
+
 static int
 ide_wait_ready(bool check_error)
 {

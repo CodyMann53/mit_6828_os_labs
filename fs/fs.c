@@ -1,40 +1,159 @@
 #include <inc/string.h>
 #include <inc/partition.h>
+#include <inc/x86.h>
 
 #include "fs.h"
 
-// --------------------------------------------------------------
-// Super block
-// --------------------------------------------------------------
+#include "inc/fs.h"
+#include "fs.h"
 
-// Validate the file system super-block.
+static uint32_t * bitmap;
+static struct Super * super;
+static char *msg = "This is the NEW message of the day!\n\n";
+
 void
-check_super(void)
+fs_test(void)
 {
-	if (super->s_magic != FS_MAGIC)
-		panic("bad file system magic number");
+	struct File *f;
+	int r;
+	char *blk;
+	uint32_t *bits;
 
-	if (super->s_nblocks > DISKSIZE/BLKSIZE)
-		panic("file system is too large");
+	// back up bitmap
+	if ((r = sys_page_alloc(0, (void*) PGSIZE, PTE_P|PTE_U|PTE_W)) < 0)
+		panic("sys_page_alloc: %e", r);
+	bits = (uint32_t*) PGSIZE;
+	memmove(bits, bitmap, PGSIZE);
+	// allocate block
+	if ((r = alloc_block()) < 0)
+		panic("alloc_block: %e", r);
+	// check that block was free
+	assert(bits[r/32] & (1 << (r%32)));
+	// and is not free any more
+	assert(!(bitmap[r/32] & (1 << (r%32))));
+	cprintf("alloc_block is good\n");
 
-	cprintf("superblock is good\n");
+	if ((r = file_open("/not-found", &f)) < 0 && r != -E_NOT_FOUND)
+		panic("file_open /not-found: %e", r);
+	else if (r == 0)
+		panic("file_open /not-found succeeded!");
+	if ((r = file_open("/newmotd", &f)) < 0)
+		panic("file_open /newmotd: %e", r);
+	cprintf("file_open is good\n");
+
+	if ((r = file_get_block(f, 0, &blk)) < 0)
+		panic("file_get_block: %e", r);
+	if (strcmp(blk, msg) != 0)
+		panic("file_get_block returned wrong data");
+	cprintf("file_get_block is good\n");
+
+	*(volatile char*)blk = *(volatile char*)blk;
+	assert((uvpt[PGNUM(blk)] & PTE_D));
+	file_flush(f);
+	assert(!(uvpt[PGNUM(blk)] & PTE_D));
+	cprintf("file_flush is good\n");
+
+	if ((r = file_set_size(f, 0)) < 0)
+		panic("file_set_size: %e", r);
+	assert(f->f_direct[0] == 0);
+	assert(!(uvpt[PGNUM(f)] & PTE_D));
+	cprintf("file_truncate is good\n");
+
+	if ((r = file_set_size(f, strlen(msg))) < 0)
+		panic("file_set_size 2: %e", r);
+	assert(!(uvpt[PGNUM(f)] & PTE_D));
+	if ((r = file_get_block(f, 0, &blk)) < 0)
+		panic("file_get_block 2: %e", r);
+	strcpy(blk, msg);
+	assert((uvpt[PGNUM(blk)] & PTE_D));
+	file_flush(f);
+	assert(!(uvpt[PGNUM(blk)] & PTE_D));
+	assert(!(uvpt[PGNUM(f)] & PTE_D));
+	cprintf("file rewrite is good\n");
+}
+
+// Return the virtual address of this disk block.
+void*
+diskaddr(uint32_t blockno)
+{
+	if (blockno == 0 || (super && blockno >= super->s_nblocks))
+		panic("bad block number %08x in diskaddr", blockno);
+	return (char*) (DISKMAP + blockno * BLKSIZE);
+}
+
+// Is this virtual address mapped?
+bool
+va_is_mapped(void *va)
+{
+	return (uvpd[PDX(va)] & PTE_P) && (uvpt[PGNUM(va)] & PTE_P);
+}
+
+// Is this virtual address dirty?
+bool
+va_is_dirty(void *va)
+{
+	return (uvpt[PGNUM(va)] & PTE_D) != 0;
+}
+
+// Fault any disk block that is read in to memory by
+// loading it from disk.
+static void
+bc_pgfault(struct UTrapframe *utf)
+{
+	void *addr = (void *) utf->utf_fault_va;
+	uint32_t blockno = ((uint32_t)addr - DISKMAP) / BLKSIZE;
+	int r;
+
+	// Check that the fault was within the block cache region
+	if (addr < (void*)DISKMAP || addr >= (void*)(DISKMAP + DISKSIZE))
+		panic("page fault in FS: eip %08x, va %08x, err %04x",
+		      utf->utf_eip, addr, utf->utf_err);
+
+	// Sanity check the block number.
+	if (super && blockno >= super->s_nblocks)
+		panic("reading non-existent block %08x\n", blockno);
+
+	// Allocate a page in the disk map region, read the contents
+	// of the block from the disk into that page.
+	// Hint: first round addr to page boundary. fs/ide.c has code to read
+	// the disk.
+	//
+	// LAB 5: you code here:
+
+	// Clear the dirty bit for the disk block page since we just read the
+	// block from disk
+	if ((r = sys_page_map(0, addr, 0, addr, uvpt[PGNUM(addr)] & PTE_SYSCALL)) < 0)
+		panic("in bc_pgfault, sys_page_map: %e", r);
+
+	// Check that the block we read was allocated. (exercise for
+	// the reader: why do we do this *after* reading the block
+	// in?)
+	if (bitmap && block_is_free(blockno))
+		panic("reading free block %08x\n", blockno);
+}
+
+// Flush the contents of the block containing VA out to disk if
+// necessary, then clear the PTE_D bit using sys_page_map.
+// If the block is not in the block cache or is not dirty, does
+// nothing.
+// Hint: Use va_is_mapped, va_is_dirty, and ide_write.
+// Hint: Use the PTE_SYSCALL constant when calling sys_page_map.
+// Hint: Don't forget to round addr down.
+void
+flush_block(void *addr)
+{
+	uint32_t blockno = ((uint32_t)addr - DISKMAP) / BLKSIZE;
+
+	if (addr < (void*)DISKMAP || addr >= (void*)(DISKMAP + DISKSIZE))
+		panic("flush_block of bad va %08x", addr);
+
+	// LAB 5: Your code here.
+	panic("flush_block not implemented");
 }
 
 // --------------------------------------------------------------
 // Free block bitmap
 // --------------------------------------------------------------
-
-// Check to see if the block bitmap indicates that block 'blockno' is free.
-// Return 1 if the block is free, 0 if not.
-bool
-block_is_free(uint32_t blockno)
-{
-	if (super == 0 || blockno >= super->s_nblocks)
-		return 0;
-	if (bitmap[blockno / 32] & (1 << (blockno % 32)))
-		return 1;
-	return 0;
-}
 
 // Mark a block free in the bitmap
 void
@@ -86,17 +205,113 @@ check_bitmap(void)
 	cprintf("bitmap is good\n");
 }
 
+// Test that the block cache works, by smashing the superblock and
+// reading it back.
+static void
+check_bc(void)
+{
+
+	struct Super backup;
+
+	// back up super block
+	memmove(&backup, diskaddr(1), sizeof backup);
+
+	// smash it
+	strcpy(diskaddr(1), "OOPS!\n");
+	flush_block(diskaddr(1));
+	assert(va_is_mapped(diskaddr(1)));
+	assert(!va_is_dirty(diskaddr(1)));
+
+	// clear it out
+	sys_page_unmap(0, diskaddr(1));
+	assert(!va_is_mapped(diskaddr(1)));
+
+	// read it back in
+	assert(strcmp(diskaddr(1), "OOPS!\n") == 0);
+
+	// fix it
+	memmove(diskaddr(1), &backup, sizeof backup);
+	flush_block(diskaddr(1));
+
+	// Now repeat the same experiment, but pass an unaligned address to
+	// flush_block.
+
+	// back up super block
+	memmove(&backup, diskaddr(1), sizeof backup);
+
+	// smash it
+	strcpy(diskaddr(1), "OOPS!\n");
+
+	// Pass an unaligned address to flush_block.
+	flush_block(diskaddr(1) + 20);
+	assert(va_is_mapped(diskaddr(1)));
+
+	// Skip the !va_is_dirty() check because it makes the bug somewhat
+	// obscure and hence harder to debug.
+	//assert(!va_is_dirty(diskaddr(1)));
+
+	// clear it out
+	sys_page_unmap(0, diskaddr(1));
+	assert(!va_is_mapped(diskaddr(1)));
+
+	// read it back in
+	assert(strcmp(diskaddr(1), "OOPS!\n") == 0);
+
+	// fix it
+	memmove(diskaddr(1), &backup, sizeof backup);
+	flush_block(diskaddr(1));
+
+	cprintf("block cache is good\n");
+}
+
+// Check to see if the block bitmap indicates that block 'blockno' is free.
+// Return 1 if the block is free, 0 if not.
+bool
+block_is_free(uint32_t blockno)
+{
+	if (super == 0 || blockno >= super->s_nblocks)
+		return 0;
+	if (bitmap[blockno / 32] & (1 << (blockno % 32)))
+		return 1;
+	return 0;
+}
+
+void
+bc_init(void)
+{
+	set_pgfault_handler(bc_pgfault);
+	check_bc();
+
+	// cache the super block by reading it once
+	memmove(super, diskaddr(1), sizeof super);
+}
+
+// Validate the file system super-block.
+void
+check_super(void)
+{
+
+	if (super->s_magic != FS_MAGIC)
+		panic("bad file system magic number");
+
+	if (super->s_nblocks > DISKSIZE/BLKSIZE)
+		panic("file system is too large");
+
+	cprintf("superblock is good\n");
+}
+
 // --------------------------------------------------------------
 // File system structures
 // --------------------------------------------------------------
-
-
 
 // Initialize the file system
 void
 fs_init(void)
 {
 	static_assert(sizeof(struct File) == 256);
+
+	uint32_t *bitmap = NULL;
+	struct Super *super = NULL;
 
 	// Find a JOS disk.  Use the second IDE disk (number 1) if available
 	if (ide_probe_disk1())
