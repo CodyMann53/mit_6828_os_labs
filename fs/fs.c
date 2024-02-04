@@ -5,11 +5,11 @@
 #include "fs.h"
 
 #include "inc/fs.h"
-#include "fs.h"
 
-static uint32_t * bitmap;
-static struct Super * super;
 static char *msg = "This is the NEW message of the day!\n\n";
+
+struct Super *super_ptr;		// superblock
+uint32_t * bitmap_ptr;
 
 void
 fs_test(void)
@@ -23,14 +23,14 @@ fs_test(void)
 	if ((r = sys_page_alloc(0, (void*) PGSIZE, PTE_P|PTE_U|PTE_W)) < 0)
 		panic("sys_page_alloc: %e", r);
 	bits = (uint32_t*) PGSIZE;
-	memmove(bits, bitmap, PGSIZE);
+	memmove(bits, bitmap_ptr, PGSIZE);
 	// allocate block
 	if ((r = alloc_block()) < 0)
 		panic("alloc_block: %e", r);
 	// check that block was free
 	assert(bits[r/32] & (1 << (r%32)));
 	// and is not free any more
-	assert(!(bitmap[r/32] & (1 << (r%32))));
+	assert(!(bitmap_ptr[r/32] & (1 << (r%32))));
 	cprintf("alloc_block is good\n");
 
 	if ((r = file_open("/not-found", &f)) < 0 && r != -E_NOT_FOUND)
@@ -72,11 +72,17 @@ fs_test(void)
 	cprintf("file rewrite is good\n");
 }
 
+uint32_t disksect(void * addr)
+{
+	uint32_t secno = ((uint32_t)(addr) - DISKMAP) / SECTSIZE;
+	return secno;
+}
+
 // Return the virtual address of this disk block.
 void*
 diskaddr(uint32_t blockno)
 {
-	if (blockno == 0 || (super && blockno >= super->s_nblocks))
+	if (blockno == 0 || (super_ptr && blockno >= super_ptr->s_nblocks))
 		panic("bad block number %08x in diskaddr", blockno);
 	return (char*) (DISKMAP + blockno * BLKSIZE);
 }
@@ -110,7 +116,7 @@ bc_pgfault(struct UTrapframe *utf)
 		      utf->utf_eip, addr, utf->utf_err);
 
 	// Sanity check the block number.
-	if (super && blockno >= super->s_nblocks)
+	if (super_ptr && blockno >= super_ptr->s_nblocks)
 		panic("reading non-existent block %08x\n", blockno);
 
 	// Allocate a page in the disk map region, read the contents
@@ -119,6 +125,17 @@ bc_pgfault(struct UTrapframe *utf)
 	// the disk.
 	//
 	// LAB 5: you code here:
+	addr = (void *) ROUNDDOWN((uint32_t) addr, PGSIZE);
+
+	if ((r = sys_page_alloc(0, addr, PTE_SYSCALL) < 0))
+	{
+		panic("in bc_pgfault, sys_page_alloc: %e", r);
+	}
+
+	if ((r = ide_read(disksect(addr), addr, BLKSECTS)) < 0)
+	{
+		panic("ide_read failure! Return value: %d", r);
+	}
 
 	// Clear the dirty bit for the disk block page since we just read the
 	// block from disk
@@ -128,7 +145,7 @@ bc_pgfault(struct UTrapframe *utf)
 	// Check that the block we read was allocated. (exercise for
 	// the reader: why do we do this *after* reading the block
 	// in?)
-	if (bitmap && block_is_free(blockno))
+	if (bitmap_ptr && block_is_free(blockno))
 		panic("reading free block %08x\n", blockno);
 }
 
@@ -148,7 +165,30 @@ flush_block(void *addr)
 		panic("flush_block of bad va %08x", addr);
 
 	// LAB 5: Your code here.
-	panic("flush_block not implemented");
+	addr = (void *) ROUNDDOWN((uint32_t) addr, PGSIZE);
+
+	if (!va_is_mapped(addr))
+	{
+		return;
+	}
+
+	if (!va_is_dirty(addr))
+	{
+		return;
+	}
+
+	int r;
+	if ((r = ide_write(disksect(addr), addr, BLKSECTS)) < 0)
+	{
+		panic("ide_write failure. Return value: %d", r);
+	}
+
+	// Clear the dirty bit for the disk block page since we just wrote the
+	// block to disk
+	if ((r = sys_page_map(0, addr, 0, addr, uvpt[PGNUM(addr)] & PTE_SYSCALL)) < 0)
+		panic("in flush_block, sys_page_map: %e", r);
+
+	return;
 }
 
 // --------------------------------------------------------------
@@ -162,7 +202,7 @@ free_block(uint32_t blockno)
 	// Blockno zero is the null pointer of block numbers.
 	if (blockno == 0)
 		panic("attempt to free zero block");
-	bitmap[blockno/32] |= 1<<(blockno%32);
+	bitmap_ptr[blockno/32] |= 1<<(blockno%32);
 }
 
 // Search the bitmap for a free block and allocate it.  When you
@@ -178,10 +218,20 @@ alloc_block(void)
 {
 	// The bitmap consists of one or more blocks.  A single bitmap block
 	// contains the in-use bits for BLKBITSIZE blocks.  There are
-	// super->s_nblocks blocks in the disk altogether.
+	// super_ptr->s_nblocks blocks in the disk altogether.
 
 	// LAB 5: Your code here.
-	panic("alloc_block not implemented");
+	uint32_t blockno = 1;
+	for (; blockno < super_ptr->s_nblocks; blockno++)
+	{
+		if(block_is_free(blockno))
+		{
+			bitmap_ptr[blockno/32] &= ~(1<<(blockno%32));
+			flush_block(diskaddr(blockno));
+			return blockno;
+		}
+	}
+
 	return -E_NO_DISK;
 }
 
@@ -195,7 +245,7 @@ check_bitmap(void)
 	uint32_t i;
 
 	// Make sure all bitmap blocks are marked in-use
-	for (i = 0; i * BLKBITSIZE < super->s_nblocks; i++)
+	for (i = 0; i * BLKBITSIZE < super_ptr->s_nblocks; i++)
 		assert(!block_is_free(2+i));
 
 	// Make sure the reserved and root blocks are marked in-use.
@@ -269,9 +319,9 @@ check_bc(void)
 bool
 block_is_free(uint32_t blockno)
 {
-	if (super == 0 || blockno >= super->s_nblocks)
+	if (super_ptr == 0 || blockno >= super_ptr->s_nblocks)
 		return 0;
-	if (bitmap[blockno / 32] & (1 << (blockno % 32)))
+	if (bitmap_ptr[blockno / 32] & (1 << (blockno % 32)))
 		return 1;
 	return 0;
 }
@@ -279,11 +329,16 @@ block_is_free(uint32_t blockno)
 void
 bc_init(void)
 {
+	struct Super super;
+
+	cprintf("[0x%x] Setting page fault handler to bc_pgfault for the file system environment.\n", thisenv->env_id);
 	set_pgfault_handler(bc_pgfault);
+
+	cprintf("[0x%x] Checking the buffer cache.\n", thisenv->env_id);
 	check_bc();
 
 	// cache the super block by reading it once
-	memmove(super, diskaddr(1), sizeof super);
+	memmove(&super, diskaddr(1), sizeof super);
 }
 
 // Validate the file system super-block.
@@ -291,10 +346,10 @@ void
 check_super(void)
 {
 
-	if (super->s_magic != FS_MAGIC)
+	if (super_ptr->s_magic != FS_MAGIC)
 		panic("bad file system magic number");
 
-	if (super->s_nblocks > DISKSIZE/BLKSIZE)
+	if (super_ptr->s_nblocks > DISKSIZE/BLKSIZE)
 		panic("file system is too large");
 
 	cprintf("superblock is good\n");
@@ -310,9 +365,6 @@ fs_init(void)
 {
 	static_assert(sizeof(struct File) == 256);
 
-	uint32_t *bitmap = NULL;
-	struct Super *super = NULL;
-
 	// Find a JOS disk.  Use the second IDE disk (number 1) if available
 	if (ide_probe_disk1())
 		ide_set_disk(1);
@@ -320,14 +372,13 @@ fs_init(void)
 		ide_set_disk(0);
 	bc_init();
 
-	// Set "super" to point to the super block.
-	super = diskaddr(1);
+	// Set "super_ptr" to point to the super block.
+	super_ptr = diskaddr(1);
 	check_super();
 
-	// Set "bitmap" to the beginning of the first bitmap block.
-	bitmap = diskaddr(2);
+	// Set "bitmap_ptr" to the beginning of the first bitmap block.
+	bitmap_ptr = diskaddr(2);
 	check_bitmap();
-	
 }
 
 // Find the disk block number slot for the 'filebno'th block in file 'f'.
@@ -454,7 +505,7 @@ walk_path(const char *path, struct File **pdir, struct File **pf, char *lastelem
 	// if (*path != '/')
 	//	return -E_BAD_PATH;
 	path = skip_slash(path);
-	f = &super->s_root;
+	f = &super_ptr->s_root;
 	dir = 0;
 	name[0] = 0;
 
@@ -665,7 +716,7 @@ void
 fs_sync(void)
 {
 	int i;
-	for (i = 1; i < super->s_nblocks; i++)
+	for (i = 1; i < super_ptr->s_nblocks; i++)
 		flush_block(diskaddr(i));
 }
 
