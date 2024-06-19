@@ -4,11 +4,11 @@ node {
     }
     stage("Build") {
         println("Build stage!")
-        sh 'ls'
         sh 'make'
     }
     stage("Test") {
         println("Test Stage!")
+        sh 'make grade'
     }
     stage("Analyze"){
         println("Analyze Stage!")
