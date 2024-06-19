@@ -7,7 +7,7 @@ node {
         sh 'pwd'
         sh 'ls'
         sh 'hostname'
-        // sh 'cd mit_6828_os_labs && make'
+        sh 'make'
     }
     stage("Test") {
         println("Test Stage!")
