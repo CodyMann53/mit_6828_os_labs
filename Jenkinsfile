@@ -4,6 +4,7 @@ node {
     }
     stage("Build") {
         println("Build stage!")
+        sh 'make'
     }
     stage("Test") {
         println("Test Stage!")
