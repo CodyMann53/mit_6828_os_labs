@@ -14,6 +14,12 @@ node {
         stage("Analyze"){
             println("Analyze Stage!")
         }
+        if (env.BRANCH_NAME == 'master') {
+            stage('Deploy') {
+                // Deployment steps for the master branch
+                println("Deploying to production!")
+            }
+        }
         post {
             always {
                 sh 'make clean' // Clean up resources
