@@ -6,11 +6,11 @@ node {
     }
     stage("Build") {
         println("Build stage!")
-        sh 'make'
+        sh 'cd mit_6828_os_labs && make'
     }
     stage("Test") {
         println("Test Stage!")
-        sh 'make grade'
+        sh 'cd mit_6828_os_labs && make grade'
     }
     stage("Analyze"){
         println("Analyze Stage!")
