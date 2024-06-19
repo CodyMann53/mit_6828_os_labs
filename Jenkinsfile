@@ -18,6 +18,7 @@ node {
         println("Analyze Stage!")
     }
     } catch (Exception e) {
-        
+        currentBuild.result = 'FAILURE'
+        echo "Error: ${e.message}"
     }
 }
