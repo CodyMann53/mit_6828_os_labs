@@ -1,6 +1,8 @@
 node {
     stage('Setup') {
         println("Setup stage!")
+        checkout poll: false, 
+            scm: scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/CodyMann53/mit_6828_os_labs']])
     }
     stage("Build") {
         println("Build stage!")
