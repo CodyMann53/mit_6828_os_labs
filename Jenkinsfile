@@ -5,17 +5,19 @@ node {
         }
         stage("Build") {
             println("Build stage!")
-            sh 'pwd'
-            sh 'ls'
-            sh 'hostname'
             sh 'make'
         }
         stage("Test") {
             println("Test Stage!")
-            // sh 'cd mit_6828_os_labs && make grade'
+            sh 'make grade'
         }
         stage("Analyze"){
             println("Analyze Stage!")
+        }
+        post {
+            always {
+                sh 'make clean' // Clean up resources
+            }
         }
     } catch (Exception e) {
         currentBuild.result = 'FAILURE'
