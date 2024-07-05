@@ -331,10 +331,8 @@ bc_init(void)
 {
 	struct Super super;
 
-	cprintf("[0x%x] Setting page fault handler to bc_pgfault for the file system environment.\n", thisenv->env_id);
 	set_pgfault_handler(bc_pgfault);
 
-	cprintf("[0x%x] Checking the buffer cache.\n", thisenv->env_id);
 	check_bc();
 
 	// cache the super block by reading it once
@@ -400,8 +398,40 @@ fs_init(void)
 static int
 file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool alloc)
 {
-       // LAB 5: Your code here.
-       panic("file_block_walk not implemented");
+    // LAB 5: Your code here.
+	
+	if (filebno >= (NDIRECT + NINDIRECT))
+	{
+		return -E_INVAL;
+	}
+
+	if (filebno < NDIRECT)
+	{
+		*ppdiskbno = &f->f_direct[filebno];
+	}
+	else
+	{
+		if (f->f_indirect == 0 && alloc == false)
+		{
+			return -E_INVAL;
+		}
+		else if (f->f_indirect == 0 && alloc == true)
+		{
+			uint32_t r = alloc_block();
+			if ( r < 0)
+			{
+				return r;
+			}
+			f->f_indirect = r;
+
+			memset(diskaddr(f->f_indirect), 0, BLKSIZE);
+		}
+
+		uint32_t * va = (uint32_t *) diskaddr(f->f_indirect);
+		*ppdiskbno = &va[filebno - NDIRECT];
+	}
+
+	return 0;
 }
 
 // Set *blk to the address in memory where the filebno'th
@@ -415,8 +445,32 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
 int
 file_get_block(struct File *f, uint32_t filebno, char **blk)
 {
-       // LAB 5: Your code here.
-       panic("file_get_block not implemented");
+       	// LAB 5: Your code here.
+	   	uint32_t * ppdiskbno;
+       	int r = file_block_walk(f, filebno, &ppdiskbno, true);
+	   	if ( r < 0)
+	   	{
+			return r;
+		}
+
+		if (*ppdiskbno == 0)
+		{
+			// Return block number allocated on success,
+			// -E_NO_DISK if we are out of blocks.
+			//
+			// Hint: use free_block as an example for manipulating the bitmap.
+			int blkno = alloc_block();
+			if (blkno < 0)
+			{
+				return blkno;
+			}
+
+			*ppdiskbno = blkno;
+			memset(diskaddr(blkno), 0, BLKSIZE);	
+		}
+
+		*blk = diskaddr(*ppdiskbno);
+		return 0;
 }
 
 // Try to find a file named "name" in dir.  If so, set *file to it.

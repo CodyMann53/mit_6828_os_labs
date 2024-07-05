@@ -9,7 +9,7 @@
 #include "fs.h"
 
 
-#define debug 0
+#define debug 1
 
 // The file system server maintains three structures
 // for each open file.
@@ -209,14 +209,24 @@ serve_read(envid_t envid, union Fsipc *ipc)
 {
 	struct Fsreq_read *req = &ipc->read;
 	struct Fsret_read *ret = &ipc->readRet;
+	struct OpenFile *o;
+	int r;
 
 	if (debug)
 		cprintf("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
 	// Lab 5: Your code here:
-	return 0;
-}
+	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
+		return r;
 
+	size_t n = file_read(o->o_file, ret->ret_buf, req->req_n, o->o_fd->fd_offset);
+	if (n >= 0)
+	{
+		o->o_fd->fd_offset += n;
+	}
+
+	return n;
+}
 
 // Write req->req_n bytes from req->req_buf to req_fileid, starting at
 // the current seek position, and update the seek position
@@ -225,11 +235,22 @@ serve_read(envid_t envid, union Fsipc *ipc)
 int
 serve_write(envid_t envid, struct Fsreq_write *req)
 {
+	struct OpenFile *o;
+	int r;
+
 	if (debug)
 		cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
-	// LAB 5: Your code here.
-	panic("serve_write not implemented");
+	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
+		return r;
+
+	int n = file_write(o->o_file, req->req_buf, req->req_n, o->o_fd->fd_offset);
+	if (n >= 0)
+	{
+		o->o_fd->fd_offset += n;
+	}
+
+	return n;
 }
 
 // Stat ipc->stat.req_fileid.  Return the file's struct Stat to the
