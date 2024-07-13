@@ -9,7 +9,7 @@
 #include "fs.h"
 
 
-#define debug 1
+#define debug 0
 
 // The file system server maintains three structures
 // for each open file.
@@ -91,7 +91,10 @@ openfile_lookup(envid_t envid, uint32_t fileid, struct OpenFile **po)
 
 	o = &opentab[fileid % MAXOPEN];
 	if (pageref(o->o_fd) <= 1 || o->o_fileid != fileid)
+	{
 		return -E_INVAL;
+	}
+
 	*po = o;
 	return 0;
 }
@@ -217,7 +220,12 @@ serve_read(envid_t envid, union Fsipc *ipc)
 
 	// Lab 5: Your code here:
 	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
+	{
+		cprintf("opfile_lookup failed\n");
 		return r;
+	}
+
+
 
 	size_t n = file_read(o->o_file, ret->ret_buf, req->req_n, o->o_fd->fd_offset);
 	if (n >= 0)

@@ -18,6 +18,7 @@ static void
 pgfault(struct UTrapframe *utf)
 {
 	void * addr = (void *) utf->utf_fault_va;
+	uint32_t addrUint32 = utf->utf_fault_va;;
 	uint32_t err = utf->utf_err;
 	int r;
 
@@ -30,7 +31,7 @@ pgfault(struct UTrapframe *utf)
 	// LAB 4: Your code here.
 	if (!(err & FEC_WR))
 	{
-		panic("Non-write page fault error code in user fork page fault handler.");
+		panic("Non-write page fault error code in user fork page fault handler. VA = 0X%x\n", addr);
 	} 
 
 	if (!(uvpt[PGNUM(addr)] & PTE_COW))
@@ -88,20 +89,30 @@ duppage(envid_t envid, unsigned pn)
 	// LAB 4: Your code here.
 	pte_t pte = uvpt[pn];
 	uintptr_t va = pn*PGSIZE;
-	int perm = PTE_U | PTE_P;
+	uint32_t perm = PTE_P | PTE_U;
 
-	if ((pte & PTE_W) || (pte & PTE_COW))
+	if (pte & PTE_SHARE)
 	{
-		perm |= PTE_COW;
+		perm = pte & PTE_SYSCALL;
+	}
+	else if (((pte & PTE_W) || (pte & PTE_COW)))
+	{
+		perm = PTE_COW | perm;
 	}
 
-	r = sys_page_map(0, (void *) va,
-	    	envid, (void *) va, perm);
+
+	r = sys_page_map(0, (void *) va, envid, (void *) va, perm);
 	if (r != 0)
 	{
 		return r;
 	}
-	
+
+	r = sys_page_map(0, (void *) va, 0, (void *) va, perm);
+	if (r != 0)
+	{
+		return r;
+	}
+
 	return 0;
 }
 
@@ -186,12 +197,6 @@ fork(void)
 		if (ret != 0)
 		{
 			cprintf("Failure to duplicate page into the child environment in fork() call. Error: %e\n", ret);
-			return ret;
-		}	
-		ret = duppage(0, pgNum);
-		if (ret != 0)
-		{
-			cprintf("Failure to duplicate page into the parent environment in fork() call. Error: %e\n", ret);
 			return ret;
 		}
 	}

@@ -302,6 +302,51 @@ static int
 copy_shared_pages(envid_t child)
 {
 	// LAB 5: Your code here.
+
+   	for (unsigned int pgNum = 0; pgNum < PGNUM(USTACKTOP); pgNum++)
+	{
+		// First check to make sure the page table page is mapped
+		pde_t pdEntry = uvpd[PDX(pgNum*PGSIZE)];
+		if (!(pdEntry & PTE_P))
+		{
+			continue;
+		}
+
+		// Check if the page is mapped
+		pte_t ptEntry = uvpt[pgNum];
+		if (!(ptEntry & PTE_P))
+		{
+			continue;
+		}
+
+		bool sharable = ptEntry & PTE_SHARE;
+		if (!sharable)
+		{
+			continue;
+		}
+
+		const pte_t pte = uvpt[pgNum];
+		const uintptr_t va = pgNum*PGSIZE;
+
+		int r = sys_page_map(0, (void *) va,
+				child, (void *) va, pte & PTE_SYSCALL);
+
+		if (r != 0)
+		{
+			cprintf("Failure to copy shared page into the child environment in copy_shared_pages() call. Error: %e\n", r);
+			return r;
+		}
+
+		r = sys_page_map(0, (void *) va,
+			0, (void *) va, pte & PTE_SYSCALL);
+
+		if (r != 0)
+		{
+			cprintf("Failure to copy shared page into the parent environment in copy_shared_pages() call. Error: %e\n", r);
+			return r;
+		}	
+
+	}
 	return 0;
 }
 

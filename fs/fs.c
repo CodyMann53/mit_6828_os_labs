@@ -399,7 +399,6 @@ static int
 file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool alloc)
 {
     // LAB 5: Your code here.
-	
 	if (filebno >= (NDIRECT + NINDIRECT))
 	{
 		return -E_INVAL;
